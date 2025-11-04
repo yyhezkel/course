@@ -1066,6 +1066,413 @@ if ($action === 'get_table_data') {
 }
 
 // ============================================
+// COURSE MANAGEMENT API ENDPOINTS
+// ============================================
+
+// Get all users with their progress
+if ($action === 'get_all_users_with_progress') {
+    try {
+        $stmt = $db->query("
+            SELECT
+                u.id,
+                u.tz,
+                u.is_blocked,
+                u.last_login,
+                COUNT(DISTINCT ut.id) as total_tasks,
+                COUNT(DISTINCT CASE WHEN ut.status IN ('completed', 'approved') THEN ut.id END) as completed_tasks,
+                COUNT(DISTINCT CASE WHEN ut.status = 'pending' THEN ut.id END) as pending_tasks,
+                COUNT(DISTINCT CASE WHEN ut.status = 'needs_review' THEN ut.id END) as review_tasks
+            FROM users u
+            LEFT JOIN user_tasks ut ON u.id = ut.user_id
+            GROUP BY u.id
+            ORDER BY u.id DESC
+        ");
+
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'users' => $users
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת המשתמשים: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Get user detail with all tasks
+if ($action === 'get_user_detail') {
+    $userId = $input['user_id'] ?? '';
+
+    if (empty($userId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משתמש']);
+        exit;
+    }
+
+    try {
+        // Get user info
+        $stmt = $db->prepare("SELECT id, tz, is_blocked, last_login FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'משתמש לא נמצא']);
+            exit;
+        }
+
+        // Get all tasks for this user
+        $stmt = $db->prepare("
+            SELECT
+                ut.id,
+                ut.task_id,
+                ut.status,
+                ut.due_date,
+                ut.priority,
+                ut.admin_notes,
+                ct.title,
+                ct.description,
+                ct.task_type,
+                ct.estimated_duration,
+                ct.points,
+                ct.sequence_order,
+                ct.form_id,
+                tp.review_notes
+            FROM user_tasks ut
+            JOIN course_tasks ct ON ut.task_id = ct.id
+            LEFT JOIN task_progress tp ON ut.id = tp.user_task_id
+            WHERE ut.user_id = ?
+            ORDER BY ct.sequence_order ASC
+        ");
+        $stmt->execute([$userId]);
+        $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'user' => $user,
+            'tasks' => $tasks
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת פרטי המשתמש: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Review a task (approve/reject)
+if ($action === 'review_task') {
+    $userTaskId = $input['user_task_id'] ?? '';
+    $status = $input['status'] ?? '';
+    $reviewNotes = $input['review_notes'] ?? '';
+
+    if (empty($userTaskId) || empty($status)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסרים פרמטרים']);
+        exit;
+    }
+
+    if (!in_array($status, ['approved', 'rejected'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'סטטוס לא תקין']);
+        exit;
+    }
+
+    try {
+        $adminId = $_SESSION['admin_id'] ?? null;
+
+        // Update task status
+        $stmt = $db->prepare("UPDATE user_tasks SET status = ? WHERE id = ?");
+        $stmt->execute([$status, $userTaskId]);
+
+        // Update task progress with review info
+        $stmt = $db->prepare("
+            UPDATE task_progress
+            SET reviewed_at = CURRENT_TIMESTAMP,
+                reviewed_by = ?,
+                review_notes = ?,
+                status = ?
+            WHERE user_task_id = ?
+        ");
+        $stmt->execute([$adminId, $reviewNotes, $status, $userTaskId]);
+
+        // Create notification for user
+        $stmt = $db->prepare("SELECT user_id, task_id FROM user_tasks WHERE id = ?");
+        $stmt->execute([$userTaskId]);
+        $taskInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($taskInfo) {
+            $notificationTitle = $status === 'approved' ? 'המשימה אושרה!' : 'המשימה נדחתה';
+            $notificationMessage = $status === 'approved'
+                ? 'המשימה שלך אושרה על ידי המנחה'
+                : 'המשימה שלך נדחתה. אנא קרא את ההערות ותקן.';
+
+            $stmt = $db->prepare("
+                INSERT INTO notifications (user_id, title, message, notification_type, related_user_task_id)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $taskInfo['user_id'],
+                $notificationTitle,
+                $notificationMessage,
+                $status === 'approved' ? 'success' : 'warning',
+                $userTaskId
+            ]);
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'הסטטוס עודכן בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון הסטטוס: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Get all course tasks (library)
+if ($action === 'get_all_tasks') {
+    try {
+        $stmt = $db->query("
+            SELECT
+                ct.*,
+                f.title as form_title,
+                COUNT(DISTINCT ut.id) as assigned_count,
+                COUNT(DISTINCT CASE WHEN ut.status IN ('completed', 'approved') THEN ut.id END) as completed_count
+            FROM course_tasks ct
+            LEFT JOIN forms f ON ct.form_id = f.id
+            LEFT JOIN user_tasks ut ON ct.id = ut.task_id
+            GROUP BY ct.id
+            ORDER BY ct.sequence_order ASC
+        ");
+
+        $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'tasks' => $tasks
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת המשימות: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Assign task to user
+if ($action === 'assign_task') {
+    $userId = $input['user_id'] ?? '';
+    $taskId = $input['task_id'] ?? '';
+    $dueDate = $input['due_date'] ?? null;
+    $priority = $input['priority'] ?? 'normal';
+    $adminNotes = $input['admin_notes'] ?? '';
+
+    if (empty($userId) || empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסרים פרמטרים']);
+        exit;
+    }
+
+    try {
+        $adminId = $_SESSION['admin_id'] ?? null;
+
+        // Check if task already assigned
+        $stmt = $db->prepare("SELECT id FROM user_tasks WHERE user_id = ? AND task_id = ?");
+        $stmt->execute([$userId, $taskId]);
+        if ($stmt->fetch()) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'המשימה כבר הוקצתה למשתמש זה']);
+            exit;
+        }
+
+        // Assign task
+        $stmt = $db->prepare("
+            INSERT INTO user_tasks (user_id, task_id, assigned_by, due_date, priority, admin_notes, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending')
+        ");
+        $stmt->execute([$userId, $taskId, $adminId, $dueDate, $priority, $adminNotes]);
+        $userTaskId = $db->lastInsertId();
+
+        // Create notification
+        $stmt = $db->prepare("SELECT title FROM course_tasks WHERE id = ?");
+        $stmt->execute([$taskId]);
+        $taskTitle = $stmt->fetchColumn();
+
+        $stmt = $db->prepare("
+            INSERT INTO notifications (user_id, title, message, notification_type, related_task_id, related_user_task_id)
+            VALUES (?, ?, ?, 'task_assigned', ?, ?)
+        ");
+        $stmt->execute([
+            $userId,
+            'משימה חדשה הוקצתה',
+            "הוקצתה לך משימה חדשה: {$taskTitle}",
+            $taskId,
+            $userTaskId
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'המשימה הוקצתה בהצלחה',
+            'user_task_id' => $userTaskId
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בהקצאת המשימה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Create new task
+if ($action === 'create_task') {
+    $title = $input['title'] ?? '';
+    $description = $input['description'] ?? '';
+    $instructions = $input['instructions'] ?? '';
+    $taskType = $input['task_type'] ?? 'assignment';
+    $formId = $input['form_id'] ?? null;
+    $estimatedDuration = $input['estimated_duration'] ?? null;
+    $points = $input['points'] ?? 0;
+    $sequenceOrder = $input['sequence_order'] ?? 0;
+
+    if (empty($title)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר כותרת למשימה']);
+        exit;
+    }
+
+    try {
+        $adminId = $_SESSION['admin_id'] ?? null;
+
+        $stmt = $db->prepare("
+            INSERT INTO course_tasks (title, description, instructions, task_type, form_id, estimated_duration, points, sequence_order, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$title, $description, $instructions, $taskType, $formId, $estimatedDuration, $points, $sequenceOrder, $adminId]);
+        $taskId = $db->lastInsertId();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'המשימה נוצרה בהצלחה',
+            'task_id' => $taskId
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה ביצירת המשימה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Update task
+if ($action === 'update_task') {
+    $taskId = $input['task_id'] ?? '';
+    $title = $input['title'] ?? '';
+    $description = $input['description'] ?? '';
+    $instructions = $input['instructions'] ?? '';
+    $taskType = $input['task_type'] ?? 'assignment';
+    $formId = $input['form_id'] ?? null;
+    $estimatedDuration = $input['estimated_duration'] ?? null;
+    $points = $input['points'] ?? 0;
+    $sequenceOrder = $input['sequence_order'] ?? 0;
+    $isActive = $input['is_active'] ?? 1;
+
+    if (empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            UPDATE course_tasks
+            SET title = ?, description = ?, instructions = ?, task_type = ?, form_id = ?,
+                estimated_duration = ?, points = ?, sequence_order = ?, is_active = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        ");
+        $stmt->execute([$title, $description, $instructions, $taskType, $formId, $estimatedDuration, $points, $sequenceOrder, $isActive, $taskId]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'המשימה עודכנה בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון המשימה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Bulk assign task to multiple users
+if ($action === 'bulk_assign_task') {
+    $userIds = $input['user_ids'] ?? [];
+    $taskId = $input['task_id'] ?? '';
+    $dueDate = $input['due_date'] ?? null;
+    $priority = $input['priority'] ?? 'normal';
+
+    if (empty($userIds) || empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסרים פרמטרים']);
+        exit;
+    }
+
+    try {
+        $adminId = $_SESSION['admin_id'] ?? null;
+        $assignedCount = 0;
+        $skippedCount = 0;
+
+        // Get task title for notification
+        $stmt = $db->prepare("SELECT title FROM course_tasks WHERE id = ?");
+        $stmt->execute([$taskId]);
+        $taskTitle = $stmt->fetchColumn();
+
+        foreach ($userIds as $userId) {
+            // Check if already assigned
+            $stmt = $db->prepare("SELECT id FROM user_tasks WHERE user_id = ? AND task_id = ?");
+            $stmt->execute([$userId, $taskId]);
+            if ($stmt->fetch()) {
+                $skippedCount++;
+                continue;
+            }
+
+            // Assign task
+            $stmt = $db->prepare("
+                INSERT INTO user_tasks (user_id, task_id, assigned_by, due_date, priority, status)
+                VALUES (?, ?, ?, ?, ?, 'pending')
+            ");
+            $stmt->execute([$userId, $taskId, $adminId, $dueDate, $priority]);
+            $userTaskId = $db->lastInsertId();
+
+            // Create notification
+            $stmt = $db->prepare("
+                INSERT INTO notifications (user_id, title, message, notification_type, related_task_id, related_user_task_id)
+                VALUES (?, ?, ?, 'task_assigned', ?, ?)
+            ");
+            $stmt->execute([
+                $userId,
+                'משימה חדשה הוקצתה',
+                "הוקצתה לך משימה חדשה: {$taskTitle}",
+                $taskId,
+                $userTaskId
+            ]);
+
+            $assignedCount++;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => "המשימה הוקצתה ל-{$assignedCount} משתמשים. {$skippedCount} דולגו (כבר הוקצו).",
+            'assigned_count' => $assignedCount,
+            'skipped_count' => $skippedCount
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בהקצאה המרובה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
 // DEFAULT
 // ============================================
 
