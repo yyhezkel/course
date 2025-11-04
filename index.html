@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>טופס דיגיטלי מאובטח</title>
+    <link rel="stylesheet" href="style.css?v=2.0">
+</head>
+<body>
+    <!-- Background Decoration -->
+    <div class="background-decoration"></div>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen active">
+        <div class="container">
+            <div class="logo-container">
+                <div class="logo-icon">🔐</div>
+                <h1 class="app-title">כניסה למערכת</h1>
+                <p class="app-subtitle">מילוי טופס דיגיטלי מאובטח</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>ברוכים הבאים</h2>
+                    <p>אנא הזן את מספר הזיהוי שלך להמשך</p>
+                </div>
+
+                <div class="card-body">
+                    <div class="input-group">
+                        <label for="tz-input" class="input-label">מספר זיהוי (ת.ז. או מספר אישי)</label>
+                        <input
+                            type="tel"
+                            id="tz-input"
+                            placeholder="הזן 7 או 9 ספרות"
+                            maxlength="9"
+                            pattern="[0-9]*"
+                            inputmode="numeric"
+                            class="input-field"
+                        >
+                        <div class="input-icon">👤</div>
+                    </div>
+
+                    <div id="error-message" class="alert alert-error" style="display:none;"></div>
+
+                    <button id="login-button" class="btn btn-primary btn-large">
+                        <span>המשך</span>
+                        <span class="btn-arrow">←</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="security-badge">
+                <span class="badge-icon">🔒</span>
+                <span>חיבור מאובטח</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form Screen -->
+    <div id="main-form-container" class="screen" style="display:none;">
+        <div class="container">
+            <!-- Progress Bar -->
+            <div class="progress-container">
+                <div class="progress-text-left">
+                    <span id="category-name"></span>
+                </div>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text-right">
+                    <span id="progress-current">1</span> / <span id="progress-total">1</span>
+                </div>
+            </div>
+
+            <!-- Form Card -->
+            <div class="card form-card">
+                <div id="form-steps-container" class="form-content">
+                    <div class="loading-spinner">⏳ טוען טופס...</div>
+                </div>
+            </div>
+
+            <!-- Navigation Footer -->
+            <footer id="form-footer" class="form-footer">
+                <button id="prev-button" class="btn btn-secondary" disabled>
+                    <span class="btn-arrow">→</span>
+                    <span>הקודם</span>
+                </button>
+
+                <button id="next-button" class="btn btn-primary" disabled>
+                    <span>הבא</span>
+                    <span class="btn-arrow">←</span>
+                </button>
+
+                <button id="confirm-button" class="btn btn-success" style="display:none;">
+                    <span>✓ שלח טופס</span>
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Questions now loaded from database via API -->
+    <!-- <script src="questions.js"></script> -->
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,2105 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בונה טפסים מתקדם - מערכת ניהול</title>
+    <link rel="stylesheet" href="../../style.css?ver=2.0.1">
+    <link rel="stylesheet" href="../admin.css?ver=2.0.1">
+    <style>
+        :root {
+            --node-bg: #ffffff;
+            --node-border: #e5e7eb;
+            --node-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            --drag-over: #eef2ff;
+            --connection-line: #a5b4fc;
+        }
+
+        .builder-workspace {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 1.5rem;
+            height: calc(100vh - 180px);
+            background: var(--gray-50);
+            padding: 1.5rem;
+            border-radius: 12px;
+        }
+
+        /* Left Panel - Question Types */
+        .questions-palette {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 1.5rem;
+            overflow-y: auto;
+            box-shadow: var(--shadow-md);
+        }
+
+        .palette-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .palette-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .question-type-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: var(--gray-50);
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            cursor: grab;
+            transition: all 0.2s;
+        }
+
+        .question-type-item:hover {
+            background: var(--primary-color);
+            color: var(--white);
+            border-color: var(--primary-color);
+            transform: translateX(-4px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .question-type-item:active {
+            cursor: grabbing;
+        }
+
+        .question-type-icon {
+            font-size: 1.25rem;
+        }
+
+        .question-type-name {
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        /* Center Panel - Canvas */
+        .form-canvas {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 2rem;
+            overflow-y: auto;
+            box-shadow: var(--shadow-md);
+            position: relative;
+        }
+
+        .canvas-header {
+            text-align: center;
+            padding-bottom: 2rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .canvas-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
+        }
+
+        .canvas-description {
+            color: var(--gray-600);
+            font-size: 0.95rem;
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            min-height: 400px;
+            position: relative;
+        }
+
+        .drop-zone.drag-over {
+            background: var(--drag-over);
+            border: 3px dashed var(--primary-color);
+            border-radius: 12px;
+        }
+
+        .empty-canvas {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--gray-400);
+        }
+
+        .empty-canvas-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Section Node */
+        .section-node {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+        }
+
+        .section-node.dragging {
+            opacity: 0.5;
+        }
+
+        .section-header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .section-drag-handle {
+            cursor: grab;
+            color: rgba(255,255,255,0.8);
+            font-size: 1.25rem;
+        }
+
+        .section-drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .section-title-text {
+            color: var(--white);
+            font-size: 1.25rem;
+            font-weight: 700;
+            flex: 1;
+            margin: 0 1rem;
+        }
+
+        .section-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .section-controls button {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: var(--white);
+            padding: 0.4rem 0.75rem;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .section-controls button:hover {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        .section-questions {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            min-height: 80px;
+        }
+
+        .section-questions.drag-over {
+            background: rgba(255,255,255,0.3);
+            border: 2px dashed rgba(255,255,255,0.6);
+        }
+
+        /* Question Node */
+        .question-node {
+            background: var(--node-bg);
+            border: 2px solid var(--node-border);
+            border-radius: 10px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: var(--node-shadow);
+            transition: all 0.2s;
+            position: relative;
+            cursor: move;
+        }
+
+        .question-node:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .question-node.dragging {
+            opacity: 0.5;
+            transform: rotate(3deg);
+        }
+
+        .question-node.has-condition {
+            border-left: 4px solid #f59e0b;
+            padding-left: 1rem;
+        }
+
+        .question-node.has-condition::before {
+            content: '⚡';
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .question-header-row {
+            display: flex;
+            align-items: start;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .drag-handle {
+            cursor: grab;
+            color: var(--gray-400);
+            font-size: 1.25rem;
+            padding: 0.25rem;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .question-content {
+            flex: 1;
+        }
+
+        .question-text-display {
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .question-text-display .required-mark {
+            color: var(--danger-color);
+        }
+
+        .question-meta {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.75rem;
+        }
+
+        .question-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.75rem;
+            background: var(--gray-100);
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+
+        .question-badge.type {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .question-badge.condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .question-actions {
+            display: flex;
+            gap: 0.35rem;
+        }
+
+        .question-actions button {
+            padding: 0.4rem 0.65rem;
+            font-size: 0.8rem;
+            min-width: auto;
+        }
+
+        /* Sequence arrows - Always visible */
+        .sequence-arrows {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            margin-left: 0.5rem;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+        }
+
+        .question-node:hover .sequence-arrows,
+        .section-node:hover .sequence-arrows {
+            opacity: 1;
+        }
+
+        .sequence-arrow-btn {
+            background: var(--gray-100);
+            border: 1px solid var(--gray-300);
+            color: var(--gray-700);
+            padding: 0.25rem 0.6rem;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+            line-height: 1;
+            min-width: 28px;
+            font-weight: bold;
+        }
+
+        .sequence-arrow-btn:hover:not(:disabled) {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: scale(1.15);
+        }
+
+        .sequence-arrow-btn:active:not(:disabled) {
+            transform: scale(0.9);
+        }
+
+        .sequence-arrow-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        .section-node .sequence-arrow-btn {
+            background: rgba(255,255,255,0.3);
+            border-color: rgba(255,255,255,0.5);
+            color: white;
+        }
+
+        .section-node .sequence-arrow-btn:hover:not(:disabled) {
+            background: rgba(255,255,255,0.6);
+            border-color: rgba(255,255,255,0.8);
+            transform: scale(1.15);
+        }
+
+        /* Root drop zone highlights */
+        .root-separator.drag-over,
+        .root-drop-zone-bottom.drag-over {
+            opacity: 1 !important;
+            background: rgba(102, 126, 234, 0.1);
+            border-color: var(--primary-color) !important;
+            transform: scaleY(1.5);
+        }
+
+        .condition-preview {
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            margin-top: 0.5rem;
+            font-size: 0.813rem;
+            color: #78350f;
+        }
+
+
+        /* Action Buttons */
+        .floating-actions {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            background: var(--white);
+            padding: 1rem 1.5rem;
+            border-radius: 50px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            z-index: 100;
+        }
+
+        .floating-actions button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 24px;
+            font-weight: 600;
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .question-node {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        /* Scrollbar */
+        .questions-palette::-webkit-scrollbar,
+        .form-canvas::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .questions-palette::-webkit-scrollbar-track,
+        .form-canvas::-webkit-scrollbar-track {
+            background: var(--gray-100);
+            border-radius: 3px;
+        }
+
+        .questions-palette::-webkit-scrollbar-thumb,
+        .form-canvas::-webkit-scrollbar-thumb {
+            background: var(--gray-400);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="admin-body">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">👨‍💼</div>
+            <h2>פאנל ניהול</h2>
+            <p class="admin-name" id="admin-name">טוען...</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="../dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>לוח בקרה</span>
+            </a>
+            <a href="../users/" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span>ניהול משתמשים</span>
+            </a>
+            <a href="../forms/" class="nav-item active">
+                <span class="nav-icon">📝</span>
+                <span>בניית טפסים</span>
+            </a>
+            <a href="../questions/" class="nav-item">
+                <span class="nav-icon">❓</span>
+                <span>ספריית שאלות</span>
+            </a>
+            <a href="../responses/" class="nav-item">
+                <span class="nav-icon">📋</span>
+                <span>צפייה בתשובות</span>
+            </a>
+            <a href="#" class="nav-item nav-item-danger" onclick="logout()">
+                <span class="nav-icon">🚪</span>
+                <span>התנתק</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p>גרסה 2.0</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main" style="padding: 1rem;">
+        <header class="admin-header" style="margin-bottom: 1rem;">
+            <div>
+                <h1>🎨 בונה טפסים מתקדם</h1>
+                <p>גרור ושחרר שאלות, הוסף תנאים והגדר לוגיקה</p>
+            </div>
+            <button class="btn btn-secondary" onclick="window.location.href='./index.html'">
+                <span>←</span> חזור
+            </button>
+        </header>
+
+        <!-- Message container -->
+        <div id="message-container"></div>
+
+        <!-- Builder Workspace -->
+        <div class="builder-workspace">
+            <!-- Left Panel: Blocks Palette -->
+            <div class="questions-palette">
+                <div class="palette-section">
+                    <div class="palette-title">⚙️ הגדרות</div>
+                    <button class="btn btn-primary" onclick="editFormSettings()" style="width: 100%; margin-bottom: 0.5rem;">
+                        📄 פרטי טופס
+                    </button>
+                </div>
+
+                <div class="palette-section">
+                    <div class="palette-title">🧱 בלוקים</div>
+                    <div id="blocks-palette">
+                        <div class="question-type-item block-item" draggable="true" data-block-type="section">
+                            <span class="question-type-icon">📦</span>
+                            <span class="question-type-name">קטגוריה</span>
+                        </div>
+                        <div class="question-type-item block-item" draggable="true" data-block-type="text">
+                            <span class="question-type-icon">📝</span>
+                            <span class="question-type-name">טקסט</span>
+                        </div>
+                        <div class="question-type-item block-item" draggable="true" data-block-type="question">
+                            <span class="question-type-icon">❓</span>
+                            <span class="question-type-name">שאלה</span>
+                        </div>
+                        <div class="question-type-item block-item" draggable="true" data-block-type="condition">
+                            <span class="question-type-icon">⚡</span>
+                            <span class="question-type-name">תנאי</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="palette-section">
+                    <div class="palette-title">📝 מידע</div>
+                    <div style="font-size: 0.75rem; color: var(--gray-600); line-height: 1.5;">
+                        <p style="margin-bottom: 0.5rem;">💡 גרור בלוקים לבניית הטופס:</p>
+                        <ul style="padding-right: 1.25rem; margin: 0;">
+                            <li>קטגוריה - מכולה לשאלות</li>
+                            <li>טקסט - טקסט מידע/הסבר</li>
+                            <li>שאלה - שאלה בודדת</li>
+                            <li>תנאי - הצגה מותנית</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Panel: Form Canvas -->
+            <div class="form-canvas">
+                <div class="canvas-header">
+                    <div class="canvas-title" id="form-title-display">טופס חדש</div>
+                    <div class="canvas-description" id="form-description-display">התחל לבנות את הטופס שלך</div>
+                </div>
+
+                <div class="drop-zone" id="drop-zone">
+                    <div class="empty-canvas" id="empty-message">
+                        <div class="empty-canvas-icon">🎯</div>
+                        <h3>גרור שאלות לכאן</h3>
+                        <p>בחר סוג שאלה מהצד והוסף לטופס</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Actions -->
+        <div class="floating-actions">
+            <button class="btn btn-secondary" onclick="previewForm()">
+                👁️ תצוגה מקדימה
+            </button>
+            <button class="btn btn-success" onclick="saveFormStructure()">
+                💾 שמור טופס
+            </button>
+        </div>
+    </main>
+
+    <script src="../admin.js?ver=2.0.1"></script>
+    <script>
+        // ============== STATE MANAGEMENT ==============
+        let currentFormId = null;
+        let questionTypes = [];
+        let blocks = []; // Array of all blocks
+        let selectedBlockId = null;
+        let draggedElement = null;
+        let draggedBlockType = null; // 'new-block', 'existing-block'
+        let draggedBlockData = null;
+
+        // Get form ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const formIdParam = urlParams.get('form_id');
+
+        // ============== INITIALIZATION ==============
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadQuestionTypes();
+            setupBlocksDragAndDrop();
+
+            if (formIdParam) {
+                await loadForm(formIdParam);
+            } else {
+                showFormSettingsModal(true);
+            }
+        });
+
+        // Load question types from API
+        async function loadQuestionTypes() {
+            try {
+                const data = await apiRequest('get_question_types');
+                if (data && data.success) {
+                    questionTypes = data.types;
+                }
+            } catch (error) {
+                console.error('Error loading question types:', error);
+            }
+        }
+
+        // ============== BLOCK SYSTEM ==============
+
+        // Generate unique block ID
+        function generateBlockId() {
+            return 'block-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        // Create a new block object
+        function createBlock(type, content = {}, parentId = null) {
+            return {
+                id: generateBlockId(),
+                type: type, // 'section', 'question', 'condition'
+                content: content,
+                parentId: parentId,
+                children: [] // Array of child block IDs
+            };
+        }
+
+        // Add block to structure
+        function addBlock(block, targetParentId = null, insertIndex = -1) {
+            console.log('addBlock called:', 'blockId:', block.id, 'targetParentId:', targetParentId);
+
+            blocks.push(block);
+
+            if (targetParentId) {
+                const parent = blocks.find(b => b.id === targetParentId);
+                console.log('Found parent:', parent ? parent.id : 'NOT FOUND');
+
+                if (parent) {
+                    if (insertIndex >= 0) {
+                        parent.children.splice(insertIndex, 0, block.id);
+                    } else {
+                        parent.children.push(block.id);
+                    }
+                    block.parentId = targetParentId;
+                    console.log('Block added to parent. Parent now has', parent.children.length, 'children');
+                } else {
+                    console.error('Parent not found with ID:', targetParentId);
+                }
+            } else {
+                console.log('No parent ID, adding to root level');
+            }
+
+            renderCanvas();
+            return block;
+        }
+
+        // Remove block from structure
+        function removeBlock(blockId) {
+            const block = blocks.find(b => b.id === blockId);
+            if (!block) return;
+
+            // Remove from parent's children
+            if (block.parentId) {
+                const parent = blocks.find(b => b.id === block.parentId);
+                if (parent) {
+                    parent.children = parent.children.filter(id => id !== blockId);
+                }
+            }
+
+            // Remove all children recursively
+            if (block.children && block.children.length > 0) {
+                [...block.children].forEach(childId => removeBlock(childId));
+            }
+
+            // Remove the block itself
+            blocks = blocks.filter(b => b.id !== blockId);
+            renderCanvas();
+        }
+
+        // Get block by ID
+        function getBlock(blockId) {
+            return blocks.find(b => b.id === blockId);
+        }
+
+        // Get root blocks (blocks without parent)
+        function getRootBlocks() {
+            return blocks.filter(b => !b.parentId);
+        }
+
+        // Move block up in sequence
+        function moveBlockUp(blockId) {
+            const block = getBlock(blockId);
+            if (!block) {
+                console.error('Block not found:', blockId);
+                return;
+            }
+
+            console.log('Moving up block:', blockId, 'Type:', block.type, 'Parent:', block.parentId);
+
+            let siblings;
+            if (block.parentId) {
+                const parent = getBlock(block.parentId);
+                if (!parent) {
+                    console.error('Parent not found:', block.parentId);
+                    return;
+                }
+                siblings = parent.children;
+                console.log('Siblings in parent:', siblings);
+            } else {
+                siblings = getRootBlocks().map(b => b.id);
+                console.log('Root siblings:', siblings);
+            }
+
+            const currentIndex = siblings.indexOf(blockId);
+            console.log('Current index:', currentIndex);
+
+            if (currentIndex <= 0) {
+                console.log('Already at top, cannot move up');
+                return; // Already at top
+            }
+
+            // Swap with previous sibling
+            if (block.parentId) {
+                const parent = getBlock(block.parentId);
+                console.log('Swapping children at indices:', currentIndex - 1, currentIndex);
+                [parent.children[currentIndex - 1], parent.children[currentIndex]] =
+                [parent.children[currentIndex], parent.children[currentIndex - 1]];
+                console.log('New children order:', parent.children);
+            } else {
+                // For root blocks, we need to reorder in the blocks array
+                const rootBlocks = getRootBlocks();
+                const prevBlock = rootBlocks[currentIndex - 1];
+                const currBlockIndex = blocks.indexOf(block);
+                const prevBlockIndex = blocks.indexOf(prevBlock);
+
+                [blocks[prevBlockIndex], blocks[currBlockIndex]] =
+                [blocks[currBlockIndex], blocks[prevBlockIndex]];
+            }
+
+            renderCanvas();
+            showSuccess('✅ הועבר למעלה');
+        }
+
+        // Move block down in sequence
+        function moveBlockDown(blockId) {
+            const block = getBlock(blockId);
+            if (!block) {
+                console.error('Block not found:', blockId);
+                return;
+            }
+
+            console.log('Moving down block:', blockId, 'Type:', block.type, 'Parent:', block.parentId);
+
+            let siblings;
+            if (block.parentId) {
+                const parent = getBlock(block.parentId);
+                if (!parent) {
+                    console.error('Parent not found:', block.parentId);
+                    return;
+                }
+                siblings = parent.children;
+                console.log('Siblings in parent:', siblings);
+            } else {
+                siblings = getRootBlocks().map(b => b.id);
+                console.log('Root siblings:', siblings);
+            }
+
+            const currentIndex = siblings.indexOf(blockId);
+            console.log('Current index:', currentIndex);
+
+            if (currentIndex < 0 || currentIndex >= siblings.length - 1) {
+                console.log('Already at bottom, cannot move down');
+                return; // Already at bottom
+            }
+
+            // Swap with next sibling
+            if (block.parentId) {
+                const parent = getBlock(block.parentId);
+                console.log('Swapping children at indices:', currentIndex, currentIndex + 1);
+                [parent.children[currentIndex], parent.children[currentIndex + 1]] =
+                [parent.children[currentIndex + 1], parent.children[currentIndex]];
+                console.log('New children order:', parent.children);
+            } else {
+                // For root blocks, we need to reorder in the blocks array
+                const rootBlocks = getRootBlocks();
+                const nextBlock = rootBlocks[currentIndex + 1];
+                const currBlockIndex = blocks.indexOf(block);
+                const nextBlockIndex = blocks.indexOf(nextBlock);
+
+                [blocks[currBlockIndex], blocks[nextBlockIndex]] =
+                [blocks[nextBlockIndex], blocks[currBlockIndex]];
+            }
+
+            renderCanvas();
+            showSuccess('✅ הועבר למטה');
+        }
+
+        // Get sibling position info (for enabling/disabling arrow buttons)
+        function getSiblingPosition(blockId) {
+            const block = getBlock(blockId);
+            if (!block) return { isFirst: true, isLast: true };
+
+            let siblings;
+            if (block.parentId) {
+                const parent = getBlock(block.parentId);
+                if (!parent) return { isFirst: true, isLast: true };
+                siblings = parent.children;
+            } else {
+                siblings = getRootBlocks().map(b => b.id);
+            }
+
+            const index = siblings.indexOf(blockId);
+            return {
+                isFirst: index === 0,
+                isLast: index === siblings.length - 1
+            };
+        }
+
+        // ============== DRAG AND DROP ==============
+
+        function setupBlocksDragAndDrop() {
+            const dropZone = document.getElementById('drop-zone');
+            const blockItems = document.querySelectorAll('.block-item');
+
+            // Setup palette blocks drag
+            blockItems.forEach(item => {
+                item.addEventListener('dragstart', handlePaletteDragStart);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+
+            // Setup drop zone
+            dropZone.addEventListener('dragover', handleCanvasDragOver);
+            dropZone.addEventListener('dragleave', handleDragLeave);
+            dropZone.addEventListener('drop', handleCanvasDrop);
+        }
+
+        function handlePaletteDragStart(e) {
+            draggedBlockType = 'new-block';
+            const blockType = e.currentTarget.dataset.blockType;
+
+            draggedBlockData = { blockType };
+            e.dataTransfer.effectAllowed = 'copy';
+            e.dataTransfer.setData('text/plain', blockType);
+            e.currentTarget.style.opacity = '0.5';
+        }
+
+        function handleCanvasDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = draggedBlockType === 'new-block' ? 'copy' : 'move';
+
+            const dropTarget = e.target.closest('[data-drop-zone]');
+            if (dropTarget) {
+                dropTarget.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(e) {
+            const dropTarget = e.target.closest('[data-drop-zone]');
+            if (dropTarget) {
+                dropTarget.classList.remove('drag-over');
+            }
+        }
+
+        function handleDragEnd(e) {
+            e.currentTarget.style.opacity = '1';
+            document.querySelectorAll('.drag-over').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+            draggedBlockType = null;
+            draggedBlockData = null;
+        }
+
+        async function handleCanvasDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const dropTarget = e.target.closest('[data-drop-zone]');
+            console.log('Drop detected!');
+            console.log('Drop target:', dropTarget);
+            console.log('draggedBlockType:', draggedBlockType);
+
+            if (dropTarget) {
+                dropTarget.classList.remove('drag-over');
+            }
+
+            const blockType = e.dataTransfer.getData('text/plain');
+            const parentId = dropTarget ? dropTarget.dataset.parentId : null;
+
+            console.log('Block type:', blockType);
+            console.log('Parent ID:', parentId);
+
+            if (draggedBlockType === 'new-block') {
+                console.log('Handling new block drop with parentId:', parentId);
+                handleNewBlockDrop(blockType, parentId);
+            } else {
+                console.log('Not a new block, draggedBlockType is:', draggedBlockType);
+            }
+        }
+
+        function handleNewBlockDrop(blockType, parentId = null) {
+            console.log('handleNewBlockDrop called with:', blockType, 'parentId:', parentId);
+
+            // Prevent nesting sections inside sections
+            if (blockType === 'section' && parentId) {
+                showError('לא ניתן לקנן קטגוריה בתוך קטגוריה אחרת');
+                return;
+            }
+
+            if (blockType === 'section') {
+                showSectionConfigModal(null); // Always null for sections
+            } else if (blockType === 'text') {
+                showTextConfigModal(parentId);
+            } else if (blockType === 'question') {
+                showQuestionTypeSelector(parentId);
+            } else if (blockType === 'condition') {
+                showConditionConfigModal(parentId);
+            }
+        }
+
+        // ============== MODALS ==============
+
+        // Show section configuration modal
+        function showSectionConfigModal(parentId = null) {
+            showModal('הוסף קטגוריה', `
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">שם הקטגוריה *</label>
+                        <input type="text" id="section-title" class="form-input"
+                               placeholder="לדוגמה: פרטים אישיים">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">תיאור (אופציונלי)</label>
+                        <textarea id="section-description" class="form-textarea" rows="2"
+                                  placeholder="תיאור הקטגוריה..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">צבע הקטגוריה</label>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="color" id="section-color" class="form-input"
+                                   value="#667eea" style="width: 80px; height: 40px; padding: 0.25rem; cursor: pointer;">
+                            <span style="font-size: 0.75rem; color: var(--gray-600);">צבע זה יוצג כרקע של הקטגוריה בטופס</span>
+                        </div>
+                    </div>
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' },
+                { text: 'צור קטגוריה', class: 'btn-primary', onclick: `createSectionBlock('${parentId || ''}')` }
+            ]);
+        }
+
+        // Create section block
+        function createSectionBlock(parentId) {
+            const title = document.getElementById('section-title').value.trim();
+            const description = document.getElementById('section-description').value.trim();
+            const color = document.getElementById('section-color').value;
+
+            if (!title) {
+                showError('נא להזין שם קטגוריה');
+                return;
+            }
+
+            const block = createBlock('section', {
+                title: title,
+                description: description,
+                color: color
+            }, parentId || null);
+
+            addBlock(block, parentId || null);
+            closeModal();
+            showSuccess('✅ קטגוריה נוצרה בהצלחה');
+        }
+
+        // Show text configuration modal
+        function showTextConfigModal(parentId = null) {
+            showModal('הוסף טקסט', `
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">כותרת (אופציונלי)</label>
+                        <input type="text" id="text-title" class="form-input"
+                               placeholder="כותרת הטקסט...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">תוכן הטקסט *</label>
+                        <textarea id="text-content" class="form-textarea" rows="4"
+                                  placeholder="הכנס את הטקסט שתרצה להציג למשתמש..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">סגנון</label>
+                        <select id="text-style" class="form-select">
+                            <option value="default">רגיל</option>
+                            <option value="info">מידע (כחול)</option>
+                            <option value="warning">אזהרה (צהוב)</option>
+                            <option value="success">הצלחה (ירוק)</option>
+                        </select>
+                    </div>
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' },
+                { text: 'צור טקסט', class: 'btn-primary', onclick: `createTextBlock('${parentId || ''}')` }
+            ]);
+        }
+
+        // Create text block
+        function createTextBlock(parentId) {
+            const title = document.getElementById('text-title').value.trim();
+            const content = document.getElementById('text-content').value.trim();
+            const style = document.getElementById('text-style').value;
+
+            if (!content) {
+                showError('נא להזין תוכן טקסט');
+                return;
+            }
+
+            const block = createBlock('text', {
+                title: title,
+                content: content,
+                style: style
+            }, parentId || null);
+
+            addBlock(block, parentId || null);
+            closeModal();
+            showSuccess('✅ בלוק טקסט נוסף בהצלחה');
+        }
+
+        // Show question type selector modal
+        function showQuestionTypeSelector(parentId = null) {
+            const iconMap = {
+                'text': '✏️', 'textarea': '📄', 'number': '🔢',
+                'email': '📧', 'phone': '📱', 'date': '📅',
+                'time': '🕐', 'radio': '🔘', 'checkbox': '☑️',
+                'select': '📋', 'file': '📎', 'url': '🔗',
+                'boolean': '✓', 'rating': '⭐'
+            };
+
+            showModal('בחר סוג שאלה', `
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+                    ${questionTypes.map(type => `
+                        <button class="btn btn-secondary" style="padding: 1rem; display: flex; align-items: center; gap: 0.75rem; justify-content: start;"
+                                onclick="showQuestionConfigModal('${parentId || ''}', ${type.id}, '${escapeHtml(type.type_name)}', '${type.type_code}')">
+                            <span style="font-size: 1.5rem;">${iconMap[type.type_code] || '❓'}</span>
+                            <span>${escapeHtml(type.type_name)}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' }
+            ]);
+        }
+
+        // Show question configuration modal
+        function showQuestionConfigModal(parentId, typeId, typeName, typeCode) {
+            const needsOptions = ['radio', 'checkbox', 'select'].includes(typeCode);
+
+            showModal('הגדר שאלה', `
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">סוג שאלה</label>
+                        <input type="text" class="form-input" value="${typeName}" disabled>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">טקסט השאלה *</label>
+                        <input type="text" id="question-text" class="form-input"
+                               placeholder="מה השאלה שתרצה לשאול?">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">טקסט עזר (Placeholder)</label>
+                        <input type="text" id="question-placeholder" class="form-input"
+                               placeholder="טקסט שיופיע בשדה ריק">
+                    </div>
+
+                    ${needsOptions ? `
+                        <div class="form-group">
+                            <label class="form-label">אפשרויות (אחת בכל שורה) *</label>
+                            <textarea id="question-options" class="form-textarea" rows="4"
+                                      placeholder="אפשרות 1&#10;אפשרות 2&#10;אפשרות 3"></textarea>
+                        </div>
+                    ` : ''}
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="question-required" checked>
+                            <span>שדה נדרש</span>
+                        </label>
+                    </div>
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' },
+                { text: 'צור שאלה', class: 'btn-primary', onclick: `createQuestionBlock('${parentId}', ${typeId}, '${escapeHtml(typeName)}', '${typeCode}')` }
+            ]);
+        }
+
+        // Create question block
+        function createQuestionBlock(parentId, typeId, typeName, typeCode) {
+            console.log('createQuestionBlock called with parentId:', parentId, 'type:', parentId ? typeof parentId : 'null');
+
+            const questionText = document.getElementById('question-text').value.trim();
+            const placeholder = document.getElementById('question-placeholder').value.trim();
+            const isRequired = document.getElementById('question-required').checked;
+
+            if (!questionText) {
+                showError('נא להזין טקסט שאלה');
+                return;
+            }
+
+            let options = null;
+            const optionsTextarea = document.getElementById('question-options');
+            if (optionsTextarea) {
+                const optionsText = optionsTextarea.value.trim();
+                if (!optionsText) {
+                    showError('נא להזין אפשרויות');
+                    return;
+                }
+                options = optionsText.split('\n').filter(o => o.trim());
+            }
+
+            // Convert empty string to null
+            const finalParentId = (parentId && parentId !== '') ? parentId : null;
+            console.log('Final parent ID after conversion:', finalParentId);
+
+            const block = createBlock('question', {
+                questionText: questionText,
+                placeholder: placeholder,
+                isRequired: isRequired,
+                typeId: typeId,
+                typeName: typeName,
+                typeCode: typeCode,
+                options: options
+            }, finalParentId);
+
+            console.log('Block created:', block.id, 'with parentId:', block.parentId);
+            addBlock(block, finalParentId);
+            closeModal();
+            showSuccess('✅ שאלה נוספה בהצלחה');
+        }
+
+        // Show condition configuration modal
+        function showConditionConfigModal(parentId = null) {
+            const questionBlocks = blocks.filter(b => b.type === 'question');
+
+            if (questionBlocks.length === 0) {
+                showError('אין שאלות זמינות. הוסף שאלות תחילה.');
+                return;
+            }
+
+            showModal('הוסף תנאי', `
+                <div style="background: var(--gray-50); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                    <p style="margin-bottom: 0.5rem; font-weight: 600;">הצג תוכן רק אם:</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">בחר שאלה</label>
+                    <select id="condition-question" class="form-select">
+                        <option value="">-- בחר שאלה --</option>
+                        ${questionBlocks.map(block => `
+                            <option value="${block.id}">${escapeHtml(block.content.questionText)}</option>
+                        `).join('')}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">תנאי</label>
+                    <select id="condition-operator" class="form-select">
+                        <option value="equals">שווה ל</option>
+                        <option value="not_equals">לא שווה ל</option>
+                        <option value="contains">מכיל</option>
+                        <option value="greater">גדול מ</option>
+                        <option value="less">קטן מ</option>
+                        <option value="is_empty">ריק</option>
+                        <option value="is_not_empty">לא ריק</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">ערך לבדיקה</label>
+                    <input type="text" id="condition-value" class="form-input"
+                           placeholder="הערך לבדיקה...">
+                </div>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' },
+                { text: 'צור תנאי', class: 'btn-primary', onclick: `createConditionBlock('${parentId || ''}')` }
+            ]);
+        }
+
+        // Create condition block
+        function createConditionBlock(parentId) {
+            const questionId = document.getElementById('condition-question').value;
+            const operator = document.getElementById('condition-operator').value;
+            const value = document.getElementById('condition-value').value.trim();
+
+            if (!questionId) {
+                showError('נא לבחור שאלה');
+                return;
+            }
+
+            const questionBlock = getBlock(questionId);
+
+            const block = createBlock('condition', {
+                questionId: questionId,
+                questionText: questionBlock.content.questionText,
+                operator: operator,
+                value: value
+            }, parentId || null);
+
+            addBlock(block, parentId || null);
+            closeModal();
+            showSuccess('✅ תנאי נוצר בהצלחה');
+        }
+
+        // ============== RENDERING ==============
+
+        // Helper function to adjust color brightness
+        function adjustBrightness(color, percent) {
+            const num = parseInt(color.replace("#",""), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) + amt;
+            const G = (num >> 8 & 0x00FF) + amt;
+            const B = (num & 0x0000FF) + amt;
+            return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 +
+                (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255))
+                .toString(16).slice(1);
+        }
+
+        // Render the canvas
+        function renderCanvas() {
+            console.log('Rendering canvas with', blocks.length, 'blocks');
+            const dropZone = document.getElementById('drop-zone');
+            const emptyMessage = document.getElementById('empty-message');
+
+            const rootBlocks = getRootBlocks();
+
+            if (rootBlocks.length === 0) {
+                emptyMessage.style.display = 'block';
+                dropZone.innerHTML = '<div class="empty-canvas" id="empty-message"><div class="empty-canvas-icon">🎯</div><h3>גרור בלוקים לכאן</h3><p>בחר בלוק מהצד והוסף לטופס</p></div>';
+                return;
+            }
+
+            if (emptyMessage) emptyMessage.style.display = 'none';
+
+            let html = '<div data-drop-zone data-parent-id="" style="min-height: 100%; padding: 1rem;">';
+            rootBlocks.forEach((block, index) => {
+                html += renderBlock(block);
+                // Add visual separator between root blocks for easier dropping
+                if (index < rootBlocks.length - 1) {
+                    html += '<div class="root-separator" data-drop-zone data-parent-id="" style="height: 20px; margin: 1rem 0; border-top: 2px dashed var(--gray-300); opacity: 0.3; transition: opacity 0.2s;"></div>';
+                }
+            });
+            // Add extra drop zone at the bottom
+            html += '<div class="root-drop-zone-bottom" data-drop-zone data-parent-id="" style="min-height: 50px; margin-top: 1rem; border: 2px dashed var(--gray-300); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--gray-500); font-size: 0.875rem; opacity: 0.5; transition: all 0.2s;">גרור כאן כדי להוסיף בלוק נוסף</div>';
+            html += '</div>';
+
+            dropZone.innerHTML = html;
+            attachBlockEvents();
+        }
+
+        // Render a single block
+        function renderBlock(block) {
+            if (block.type === 'section') {
+                return renderSectionBlock(block);
+            } else if (block.type === 'text') {
+                return renderTextBlock(block);
+            } else if (block.type === 'question') {
+                return renderQuestionBlock(block);
+            } else if (block.type === 'condition') {
+                return renderConditionBlock(block);
+            }
+            return '';
+        }
+
+        // Render section block with drop zone for children
+        function renderSectionBlock(block) {
+            const children = block.children.map(childId => {
+                const childBlock = getBlock(childId);
+                return childBlock ? renderBlock(childBlock) : '';
+            }).join('');
+
+            const isEmpty = block.children.length === 0;
+
+            // Use custom color if set, otherwise use default gradient
+            const color = block.content.color || '#667eea';
+            const bgStyle = block.content.color
+                ? `background: linear-gradient(135deg, ${color} 0%, ${adjustBrightness(color, -20)} 100%);`
+                : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);';
+
+            const position = getSiblingPosition(block.id);
+
+            return `
+                <div class="section-node" data-block-id="${block.id}" data-block-type="section" style="${bgStyle}">
+                    <div class="section-header-bar">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="section-drag-handle" draggable="true">⋮⋮</span>
+                            <div class="sequence-arrows">
+                                <button class="sequence-arrow-btn" onclick="moveBlockUp('${block.id}')" ${position.isFirst ? 'disabled' : ''} title="הזז למעלה">▲</button>
+                                <button class="sequence-arrow-btn" onclick="moveBlockDown('${block.id}')" ${position.isLast ? 'disabled' : ''} title="הזז למטה">▼</button>
+                            </div>
+                        </div>
+                        <div class="section-title-text">${escapeHtml(block.content.title)}</div>
+                        <div class="section-controls">
+                            <button onclick="editBlockProperties('${block.id}')" title="ערוך">✏️</button>
+                            <button onclick="removeBlock('${block.id}')" title="מחק">🗑️</button>
+                        </div>
+                    </div>
+                    ${block.content.description ? `<p style="color: rgba(255,255,255,0.9); font-size: 0.875rem; margin-bottom: 0.75rem;">${escapeHtml(block.content.description)}</p>` : ''}
+                    <div class="section-questions" data-drop-zone data-parent-id="${block.id}">
+                        ${isEmpty ? '<p style="color: rgba(255,255,255,0.7); text-align: center; padding: 1.5rem; font-size: 0.875rem;">גרור בלוקים לכאן</p>' : children}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render text block
+        function renderTextBlock(block) {
+            const content = block.content;
+            const styleMap = {
+                'default': { bg: '#f9fafb', border: '#e5e7eb', icon: '📝' },
+                'info': { bg: '#eff6ff', border: '#3b82f6', icon: 'ℹ️' },
+                'warning': { bg: '#fffbeb', border: '#f59e0b', icon: '⚠️' },
+                'success': { bg: '#f0fdf4', border: '#10b981', icon: '✓' }
+            };
+
+            const style = styleMap[content.style] || styleMap['default'];
+            const position = getSiblingPosition(block.id);
+
+            return `
+                <div class="question-node" data-block-id="${block.id}" data-block-type="text" draggable="true"
+                     style="background: ${style.bg}; border-color: ${style.border}; border-left: 4px solid ${style.border};">
+                    <div class="question-header-row">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="drag-handle">⋮⋮</span>
+                            <div class="sequence-arrows">
+                                <button class="sequence-arrow-btn" onclick="moveBlockUp('${block.id}')" ${position.isFirst ? 'disabled' : ''} title="הזז למעלה">▲</button>
+                                <button class="sequence-arrow-btn" onclick="moveBlockDown('${block.id}')" ${position.isLast ? 'disabled' : ''} title="הזז למטה">▼</button>
+                            </div>
+                        </div>
+                        <div class="question-content" style="flex: 1;">
+                            ${content.title ? `<div style="font-weight: 700; color: var(--gray-900); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                                <span>${style.icon}</span>
+                                <span>${escapeHtml(content.title)}</span>
+                            </div>` : ''}
+                            <div style="color: var(--gray-700); font-size: 0.95rem; line-height: 1.6; white-space: pre-wrap;">
+                                ${escapeHtml(content.content)}
+                            </div>
+                        </div>
+                        <div class="question-actions">
+                            <button class="btn btn-sm btn-secondary" onclick="editBlockProperties('${block.id}')" title="ערוך">⚙️</button>
+                            <button class="btn btn-sm btn-danger" onclick="removeBlock('${block.id}')" title="מחק">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render question block
+        function renderQuestionBlock(block) {
+            const content = block.content;
+            const iconMap = {
+                'text': '✏️', 'textarea': '📄', 'number': '🔢',
+                'email': '📧', 'phone': '📱', 'date': '📅',
+                'time': '🕐', 'radio': '🔘', 'checkbox': '☑️',
+                'select': '📋', 'file': '📎', 'url': '🔗',
+                'boolean': '✓', 'rating': '⭐'
+            };
+
+            const position = getSiblingPosition(block.id);
+
+            return `
+                <div class="question-node" data-block-id="${block.id}" data-block-type="question" draggable="true">
+                    <div class="question-header-row">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="drag-handle">⋮⋮</span>
+                            <div class="sequence-arrows">
+                                <button class="sequence-arrow-btn" onclick="moveBlockUp('${block.id}')" ${position.isFirst ? 'disabled' : ''} title="הזז למעלה">▲</button>
+                                <button class="sequence-arrow-btn" onclick="moveBlockDown('${block.id}')" ${position.isLast ? 'disabled' : ''} title="הזז למטה">▼</button>
+                            </div>
+                        </div>
+                        <div class="question-content">
+                            <div class="question-text-display">
+                                ${iconMap[content.typeCode] || '❓'} ${escapeHtml(content.questionText)}
+                                ${content.isRequired ? '<span class="required-mark">*</span>' : ''}
+                            </div>
+                            <div class="question-meta">
+                                <span class="question-badge type">${escapeHtml(content.typeName)}</span>
+                                ${content.placeholder ? `<span class="question-badge">${escapeHtml(content.placeholder)}</span>` : ''}
+                                ${content.options ? `<span class="question-badge">${content.options.length} אפשרויות</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="question-actions">
+                            <button class="btn btn-sm btn-secondary" onclick="editBlockProperties('${block.id}')" title="ערוך">⚙️</button>
+                            <button class="btn btn-sm btn-danger" onclick="removeBlock('${block.id}')" title="מחק">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render condition block with drop zone for children
+        function renderConditionBlock(block) {
+            const content = block.content;
+            const operatorText = {
+                'equals': 'שווה ל',
+                'not_equals': 'לא שווה ל',
+                'contains': 'מכיל',
+                'greater': 'גדול מ',
+                'less': 'קטן מ',
+                'is_empty': 'ריק',
+                'is_not_empty': 'לא ריק'
+            };
+
+            const children = block.children.map(childId => {
+                const childBlock = getBlock(childId);
+                return childBlock ? renderBlock(childBlock) : '';
+            }).join('');
+
+            const isEmpty = block.children.length === 0;
+            const position = getSiblingPosition(block.id);
+
+            return `
+                <div class="section-node" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);"
+                     data-block-id="${block.id}" data-block-type="condition">
+                    <div class="section-header-bar">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="section-drag-handle" draggable="true">⚡</span>
+                            <div class="sequence-arrows">
+                                <button class="sequence-arrow-btn" onclick="moveBlockUp('${block.id}')" ${position.isFirst ? 'disabled' : ''} title="הזז למעלה">▲</button>
+                                <button class="sequence-arrow-btn" onclick="moveBlockDown('${block.id}')" ${position.isLast ? 'disabled' : ''} title="הזז למטה">▼</button>
+                            </div>
+                        </div>
+                        <div class="section-title-text">
+                            תנאי: ${escapeHtml(content.questionText)} ${operatorText[content.operator] || content.operator} "${escapeHtml(content.value)}"
+                        </div>
+                        <div class="section-controls">
+                            <button onclick="editBlockProperties('${block.id}')" title="ערוך">✏️</button>
+                            <button onclick="removeBlock('${block.id}')" title="מחק">🗑️</button>
+                        </div>
+                    </div>
+                    <p style="color: rgba(255,255,255,0.9); font-size: 0.75rem; margin-bottom: 0.75rem;">
+                        ⚠️ התוכן הבא יוצג רק אם התנאי מתקיים
+                    </p>
+                    <div class="section-questions" data-drop-zone data-parent-id="${block.id}">
+                        ${isEmpty ? '<p style="color: rgba(255,255,255,0.7); text-align: center; padding: 1.5rem; font-size: 0.875rem;">גרור בלוקים שיוצגו בתנאי</p>' : children}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Attach event handlers to rendered blocks
+        function attachBlockEvents() {
+            // Attach drag events to existing blocks ONLY in the canvas (not palette)
+            const dropZone = document.getElementById('drop-zone');
+            const draggableElements = dropZone.querySelectorAll('[draggable="true"]');
+            console.log('Attaching events to', draggableElements.length, 'draggable elements in canvas');
+
+            draggableElements.forEach(el => {
+                el.addEventListener('dragstart', handleBlockDragStart);
+                el.addEventListener('dragend', handleDragEnd);
+            });
+
+            // Attach drop zones
+            const dropZones = document.querySelectorAll('[data-drop-zone]');
+            console.log('Attaching events to', dropZones.length, 'drop zones');
+
+            dropZones.forEach(zone => {
+                zone.addEventListener('dragover', handleCanvasDragOver);
+                zone.addEventListener('dragleave', handleDragLeave);
+                zone.addEventListener('drop', handleCanvasDrop);
+            });
+        }
+
+        // Handle existing block drag start
+        function handleBlockDragStart(e) {
+            draggedBlockType = 'existing-block';
+            const blockEl = e.target.closest('[data-block-id]');
+            if (blockEl) {
+                draggedBlockData = { blockId: blockEl.dataset.blockId };
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', blockEl.dataset.blockId);
+                blockEl.style.opacity = '0.5';
+            }
+        }
+
+        // ============== BLOCK EDITING ==============
+
+        // Edit block properties
+        function editBlockProperties(blockId) {
+            const block = getBlock(blockId);
+            if (!block) return;
+
+            selectedBlockId = blockId;
+
+            if (block.type === 'section') {
+                showEditSectionModal(block);
+            } else if (block.type === 'text') {
+                showEditTextModal(block);
+            } else if (block.type === 'question') {
+                showEditQuestionModal(block);
+            } else if (block.type === 'condition') {
+                showEditConditionModal(block);
+            }
+        }
+
+        // Show edit section modal
+        function showEditSectionModal(block) {
+            showModal('ערוך קטגוריה', `
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">שם הקטגוריה *</label>
+                        <input type="text" id="edit-section-title" class="form-input"
+                               value="${escapeHtml(block.content.title)}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">תיאור (אופציונלי)</label>
+                        <textarea id="edit-section-description" class="form-textarea" rows="2">${escapeHtml(block.content.description || '')}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">צבע הקטגוריה</label>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="color" id="edit-section-color" class="form-input"
+                                   value="${block.content.color || '#667eea'}" style="width: 80px; height: 40px; padding: 0.25rem; cursor: pointer;">
+                            <span style="font-size: 0.75rem; color: var(--gray-600);">צבע זה יוצג כרקע של הקטגוריה בטופס</span>
+                        </div>
+                    </div>
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' },
+                { text: 'שמור', class: 'btn-primary', onclick: `updateSectionBlock('${block.id}')` }
+            ]);
+        }
+
+        // Update section block
+        function updateSectionBlock(blockId) {
+            const block = getBlock(blockId);
+            if (!block) return;
+
+            const title = document.getElementById('edit-section-title').value.trim();
+            const description = document.getElementById('edit-section-description').value.trim();
+            const color = document.getElementById('edit-section-color').value;
+
+            if (!title) {
+                showError('נא להזין שם קטגוריה');
+                return;
+            }
+
+            block.content.title = title;
+            block.content.description = description;
+            block.content.color = color;
+
+            renderCanvas();
+            closeModal();
+            showSuccess('✅ קטגוריה עודכנה');
+        }
+
+        // Show edit text modal
+        function showEditTextModal(block) {
+            showModal('ערוך טקסט', `
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">כותרת (אופציונלי)</label>
+                        <input type="text" id="edit-text-title" class="form-input"
+                               value="${escapeHtml(block.content.title || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">תוכן הטקסט *</label>
+                        <textarea id="edit-text-content" class="form-textarea" rows="4">${escapeHtml(block.content.content)}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">סגנון</label>
+                        <select id="edit-text-style" class="form-select">
+                            <option value="default" ${block.content.style === 'default' ? 'selected' : ''}>רגיל</option>
+                            <option value="info" ${block.content.style === 'info' ? 'selected' : ''}>מידע (כחול)</option>
+                            <option value="warning" ${block.content.style === 'warning' ? 'selected' : ''}>אזהרה (צהוב)</option>
+                            <option value="success" ${block.content.style === 'success' ? 'selected' : ''}>הצלחה (ירוק)</option>
+                        </select>
+                    </div>
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' },
+                { text: 'שמור', class: 'btn-primary', onclick: `updateTextBlock('${block.id}')` }
+            ]);
+        }
+
+        // Update text block
+        function updateTextBlock(blockId) {
+            const block = getBlock(blockId);
+            if (!block) return;
+
+            const title = document.getElementById('edit-text-title').value.trim();
+            const content = document.getElementById('edit-text-content').value.trim();
+            const style = document.getElementById('edit-text-style').value;
+
+            if (!content) {
+                showError('נא להזין תוכן טקסט');
+                return;
+            }
+
+            block.content.title = title;
+            block.content.content = content;
+            block.content.style = style;
+
+            renderCanvas();
+            closeModal();
+            showSuccess('✅ טקסט עודכן');
+        }
+
+        // Show edit question modal
+        function showEditQuestionModal(block) {
+            const needsOptions = ['radio', 'checkbox', 'select'].includes(block.content.typeCode);
+
+            showModal('ערוך שאלה', `
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">סוג שאלה</label>
+                        <input type="text" class="form-input" value="${escapeHtml(block.content.typeName)}" disabled>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">טקסט השאלה *</label>
+                        <input type="text" id="edit-question-text" class="form-input"
+                               value="${escapeHtml(block.content.questionText)}">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">טקסט עזר (Placeholder)</label>
+                        <input type="text" id="edit-question-placeholder" class="form-input"
+                               value="${escapeHtml(block.content.placeholder || '')}">
+                    </div>
+
+                    ${needsOptions ? `
+                        <div class="form-group">
+                            <label class="form-label">אפשרויות (אחת בכל שורה) *</label>
+                            <textarea id="edit-question-options" class="form-textarea" rows="4">${block.content.options ? block.content.options.join('\n') : ''}</textarea>
+                        </div>
+                    ` : ''}
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="edit-question-required" ${block.content.isRequired ? 'checked' : ''}>
+                            <span>שדה נדרש</span>
+                        </label>
+                    </div>
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' },
+                { text: 'שמור', class: 'btn-primary', onclick: `updateQuestionBlock('${block.id}')` }
+            ]);
+        }
+
+        // Update question block
+        function updateQuestionBlock(blockId) {
+            const block = getBlock(blockId);
+            if (!block) return;
+
+            const questionText = document.getElementById('edit-question-text').value.trim();
+            const placeholder = document.getElementById('edit-question-placeholder').value.trim();
+            const isRequired = document.getElementById('edit-question-required').checked;
+
+            if (!questionText) {
+                showError('נא להזין טקסט שאלה');
+                return;
+            }
+
+            let options = block.content.options;
+            const optionsTextarea = document.getElementById('edit-question-options');
+            if (optionsTextarea) {
+                const optionsText = optionsTextarea.value.trim();
+                if (!optionsText) {
+                    showError('נא להזין אפשרויות');
+                    return;
+                }
+                options = optionsText.split('\n').filter(o => o.trim());
+            }
+
+            block.content.questionText = questionText;
+            block.content.placeholder = placeholder;
+            block.content.isRequired = isRequired;
+            block.content.options = options;
+
+            renderCanvas();
+            closeModal();
+            showSuccess('✅ שאלה עודכנה');
+        }
+
+        // Show edit condition modal
+        function showEditConditionModal(block) {
+            const questionBlocks = blocks.filter(b => b.type === 'question');
+
+            showModal('ערוך תנאי', `
+                <div class="form-group">
+                    <label class="form-label">בחר שאלה</label>
+                    <select id="edit-condition-question" class="form-select">
+                        ${questionBlocks.map(qBlock => `
+                            <option value="${qBlock.id}" ${qBlock.id === block.content.questionId ? 'selected' : ''}>
+                                ${escapeHtml(qBlock.content.questionText)}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">תנאי</label>
+                    <select id="edit-condition-operator" class="form-select">
+                        <option value="equals" ${block.content.operator === 'equals' ? 'selected' : ''}>שווה ל</option>
+                        <option value="not_equals" ${block.content.operator === 'not_equals' ? 'selected' : ''}>לא שווה ל</option>
+                        <option value="contains" ${block.content.operator === 'contains' ? 'selected' : ''}>מכיל</option>
+                        <option value="greater" ${block.content.operator === 'greater' ? 'selected' : ''}>גדול מ</option>
+                        <option value="less" ${block.content.operator === 'less' ? 'selected' : ''}>קטן מ</option>
+                        <option value="is_empty" ${block.content.operator === 'is_empty' ? 'selected' : ''}>ריק</option>
+                        <option value="is_not_empty" ${block.content.operator === 'is_not_empty' ? 'selected' : ''}>לא ריק</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">ערך לבדיקה</label>
+                    <input type="text" id="edit-condition-value" class="form-input"
+                           value="${escapeHtml(block.content.value)}">
+                </div>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' },
+                { text: 'שמור', class: 'btn-primary', onclick: `updateConditionBlock('${block.id}')` }
+            ]);
+        }
+
+        // Update condition block
+        function updateConditionBlock(blockId) {
+            const block = getBlock(blockId);
+            if (!block) return;
+
+            const questionId = document.getElementById('edit-condition-question').value;
+            const operator = document.getElementById('edit-condition-operator').value;
+            const value = document.getElementById('edit-condition-value').value.trim();
+
+            const questionBlock = getBlock(questionId);
+
+            block.content.questionId = questionId;
+            block.content.questionText = questionBlock.content.questionText;
+            block.content.operator = operator;
+            block.content.value = value;
+
+            renderCanvas();
+            closeModal();
+            showSuccess('✅ תנאי עודכן');
+        }
+
+        // ============== FORM MANAGEMENT ==============
+
+        // Edit form settings
+        function editFormSettings() {
+            showFormSettingsModal(false);
+        }
+
+        // Show form settings modal
+        function showFormSettingsModal(isNew) {
+            const title = document.getElementById('form-title-display').textContent;
+            const description = document.getElementById('form-description-display').textContent;
+
+            showModal(isNew ? 'צור טופס חדש' : 'הגדרות טופס', `
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">כותרת הטופס *</label>
+                        <input type="text" id="form-title" class="form-input"
+                               value="${isNew ? '' : escapeHtml(title)}"
+                               placeholder="לדוגמה: טופס קבלה לקורס">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">תיאור</label>
+                        <textarea id="form-description" class="form-textarea" rows="3"
+                                  placeholder="תיאור קצר...">${isNew ? '' : escapeHtml(description)}</textarea>
+                    </div>
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: isNew ? 'window.location.href="./index.html"' : 'closeModal()' },
+                { text: isNew ? 'צור' : 'שמור', class: 'btn-primary', onclick: `saveFormSettings(${isNew})` }
+            ]);
+        }
+
+        // Save form settings
+        async function saveFormSettings(isNew) {
+            const title = document.getElementById('form-title').value.trim();
+            const description = document.getElementById('form-description').value.trim();
+
+            if (!title) {
+                showError('נא להזין כותרת');
+                return;
+            }
+
+            if (isNew) {
+                try {
+                    const result = await apiRequest('create_form', {
+                        title, description
+                    }, 'POST');
+
+                    if (result.success) {
+                        currentFormId = result.form_id;
+                        document.getElementById('form-title-display').textContent = title;
+                        document.getElementById('form-description-display').textContent = description;
+                        closeModal();
+                        showSuccess('✅ טופס נוצר! התחל לבנות את הטופס');
+                    } else {
+                        showError(result.message);
+                    }
+                } catch (error) {
+                    showError('שגיאה ביצירת טופס');
+                }
+            } else {
+                document.getElementById('form-title-display').textContent = title;
+                document.getElementById('form-description-display').textContent = description;
+                closeModal();
+                showSuccess('✅ הגדרות עודכנו');
+            }
+        }
+
+        // Load form (for backward compatibility with database)
+        async function loadForm(formId) {
+            try {
+                console.log('Loading form with ID:', formId);
+                const data = await apiRequest('get_form', { form_id: formId });
+                console.log('Form data received:', data);
+
+                if (!data || !data.success) {
+                    showError(data?.message || 'שגיאה בטעינת טופס');
+                    return;
+                }
+
+                currentFormId = formId;
+                const form = data.form;
+                const questions = data.questions; // Questions are at top level, not inside form!
+                const structure = data.structure; // New JSON structure with text/condition blocks
+
+                document.getElementById('form-title-display').textContent = form.title;
+                document.getElementById('form-description-display').textContent = form.description || '';
+
+                // Load structure: prefer JSON structure if available, otherwise convert from questions
+                blocks = [];
+                if (structure && Array.isArray(structure) && structure.length > 0) {
+                    console.log('Loading from structure_json:', structure);
+                    blocks = structure;
+                } else {
+                    console.log('Converting from questions:', questions);
+                    convertFormToBlocks({ ...form, questions: questions });
+                }
+                console.log('Final blocks:', blocks);
+                renderCanvas();
+
+                if (blocks.length > 0) {
+                    showSuccess('✅ טופס נטען בהצלחה!');
+                } else {
+                    showMessage('💡 טופס ריק. התחל להוסיף בלוקים!', 'info');
+                }
+            } catch (error) {
+                console.error('Error loading form:', error);
+                showError('שגיאה בטעינת טופס: ' + error.message);
+            }
+        }
+
+        // Convert database form structure to blocks
+        function convertFormToBlocks(form) {
+            console.log('Starting conversion. Form object:', form);
+            console.log('Questions array exists?', !!form.questions);
+            console.log('Questions length:', form.questions?.length);
+
+            if (!form.questions || form.questions.length === 0) {
+                console.log('No questions to convert');
+                return;
+            }
+
+            // Group questions by section
+            const sections = {};
+            const orphanQuestions = [];
+
+            form.questions.forEach((q, index) => {
+                console.log(`Processing question ${index}:`, q);
+                if (q.section_title) {
+                    const sectionKey = `${q.section_sequence || 0}_${q.section_title}`;
+                    if (!sections[sectionKey]) {
+                        sections[sectionKey] = {
+                            title: q.section_title,
+                            sequence: q.section_sequence || 0,
+                            questions: []
+                        };
+                    }
+                    sections[sectionKey].questions.push(q);
+                } else {
+                    orphanQuestions.push(q);
+                }
+            });
+
+            console.log('Sections found:', Object.keys(sections).length);
+            console.log('Orphan questions:', orphanQuestions.length);
+
+            // Sort sections by sequence
+            const sortedSections = Object.values(sections).sort((a, b) => a.sequence - b.sequence);
+
+            // Create section blocks
+            sortedSections.forEach((section, sIdx) => {
+                console.log(`Creating section ${sIdx}:`, section.title);
+                const sectionBlock = createBlock('section', {
+                    title: section.title,
+                    description: '',
+                    color: '#667eea'
+                });
+                blocks.push(sectionBlock);
+
+                // Sort questions within section by sequence_order
+                section.questions.sort((a, b) => (a.sequence_order || 0) - (b.sequence_order || 0));
+
+                // Create question blocks within section
+                section.questions.forEach((q, qIdx) => {
+                    console.log(`  Creating question ${qIdx} in section:`, q.question_text);
+                    try {
+                        const questionBlock = createBlock('question', {
+                            questionText: q.question_text,
+                            placeholder: q.placeholder || '',
+                            isRequired: q.is_required || false,
+                            typeId: q.question_type_id,
+                            typeName: q.type_name || '',
+                            typeCode: q.type_code || '',
+                            options: q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : null
+                        }, sectionBlock.id);
+
+                        blocks.push(questionBlock);
+                        sectionBlock.children.push(questionBlock.id);
+                    } catch (error) {
+                        console.error('Error creating question block:', error, q);
+                    }
+                });
+            });
+
+            // Add orphan questions (questions without section)
+            orphanQuestions.sort((a, b) => (a.sequence_order || 0) - (b.sequence_order || 0));
+            orphanQuestions.forEach((q, idx) => {
+                console.log(`Creating orphan question ${idx}:`, q.question_text);
+                try {
+                    const questionBlock = createBlock('question', {
+                        questionText: q.question_text,
+                        placeholder: q.placeholder || '',
+                        isRequired: q.is_required || false,
+                        typeId: q.question_type_id,
+                        typeName: q.type_name || '',
+                        typeCode: q.type_code || '',
+                        options: q.options ? (typeof q.options === 'string' ? JSON.parse(q.options) : q.options) : null
+                    });
+                    blocks.push(questionBlock);
+                } catch (error) {
+                    console.error('Error creating orphan question block:', error, q);
+                }
+            });
+
+            console.log('Conversion complete. Total blocks created:', blocks.length);
+        }
+
+        // Save form structure
+        async function saveFormStructure() {
+            if (!currentFormId) {
+                showError('נא ליצור טופס תחילה');
+                return;
+            }
+
+            if (blocks.length === 0) {
+                showError('הטופס ריק. הוסף לפחות שאלה אחת.');
+                return;
+            }
+
+            try {
+                // Send to API
+                const result = await apiRequest('save_form_blocks', {
+                    form_id: currentFormId,
+                    blocks: blocks
+                }, 'POST');
+
+                if (result.success) {
+                    showSuccess('✅ הטופס נשמר בהצלחה למסד הנתונים!');
+                    console.log('Form saved successfully');
+                } else {
+                    showError(result.message || 'שגיאה בשמירת הטופס');
+                }
+            } catch (error) {
+                console.error('Error saving form:', error);
+                showError('שגיאה בשמירת הטופס: ' + error.message);
+            }
+        }
+
+        // Preview form
+        function previewForm() {
+            const rootBlocks = getRootBlocks();
+
+            if (rootBlocks.length === 0) {
+                showError('הטופס ריק. הוסף בלוקים תחילה.');
+                return;
+            }
+
+            let previewHTML = `
+                <div style="background: var(--gray-50); padding: 2rem; border-radius: 8px; max-height: 70vh; overflow-y: auto;">
+                    <h2 style="margin-bottom: 0.5rem;">${document.getElementById('form-title-display').textContent}</h2>
+                    <p style="color: var(--gray-600); margin-bottom: 2rem;">${document.getElementById('form-description-display').textContent}</p>
+            `;
+
+            function renderBlockPreview(block, depth = 0) {
+                if (block.type === 'section') {
+                    // Use custom color if set, otherwise use default gradient
+                    const color = block.content.color || '#667eea';
+                    const bgStyle = block.content.color
+                        ? `background: linear-gradient(135deg, ${color} 0%, ${adjustBrightness(color, -20)} 100%);`
+                        : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);';
+
+                    let html = `
+                        <div style="${bgStyle} padding: 1.5rem; border-radius: 10px; margin-bottom: 1.5rem; color: white;">
+                            <h3 style="margin-bottom: 0.5rem; color: white;">${escapeHtml(block.content.title)}</h3>
+                            ${block.content.description ? `<p style="font-size: 0.875rem; margin-bottom: 1rem; opacity: 0.9;">${escapeHtml(block.content.description)}</p>` : ''}
+                            <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px;">
+                    `;
+
+                    block.children.forEach(childId => {
+                        const child = getBlock(childId);
+                        if (child) html += renderBlockPreview(child, depth + 1);
+                    });
+
+                    html += `</div></div>`;
+                    return html;
+
+                } else if (block.type === 'text') {
+                    const c = block.content;
+                    const styleMap = {
+                        'default': { bg: '#f9fafb', border: '#e5e7eb' },
+                        'info': { bg: '#eff6ff', border: '#3b82f6' },
+                        'warning': { bg: '#fffbeb', border: '#f59e0b' },
+                        'success': { bg: '#f0fdf4', border: '#10b981' }
+                    };
+                    const style = styleMap[c.style] || styleMap['default'];
+
+                    return `
+                        <div style="margin-bottom: 1.5rem; padding: 1rem; background: ${style.bg}; border-left: 4px solid ${style.border}; border-radius: 6px;">
+                            ${c.title ? `<div style="font-weight: 700; margin-bottom: 0.5rem; color: var(--gray-900);">${escapeHtml(c.title)}</div>` : ''}
+                            <div style="color: var(--gray-700); line-height: 1.6; white-space: pre-wrap;">${escapeHtml(c.content)}</div>
+                        </div>
+                    `;
+
+                } else if (block.type === 'question') {
+                    const c = block.content;
+                    return `
+                        <div style="margin-bottom: 1.5rem; ${depth > 0 ? 'background: rgba(255,255,255,0.5); padding: 1rem; border-radius: 6px;' : ''}">
+                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: ${depth > 0 ? 'white' : 'var(--gray-900)'};">
+                                ${escapeHtml(c.questionText)}
+                                ${c.isRequired ? '<span style="color: red;">*</span>' : ''}
+                            </label>
+                            <input type="text" class="form-input" placeholder="${escapeHtml(c.placeholder || '')}" disabled style="background: white;">
+                            ${c.options ? `<p style="font-size: 0.75rem; margin-top: 0.25rem; color: ${depth > 0 ? 'rgba(255,255,255,0.9)' : 'var(--gray-600)'};">אפשרויות: ${c.options.join(', ')}</p>` : ''}
+                        </div>
+                    `;
+
+                } else if (block.type === 'condition') {
+                    let html = `
+                        <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 1.5rem; border-radius: 10px; margin-bottom: 1.5rem; color: white;">
+                            <p style="font-size: 0.875rem; font-weight: 600; margin-bottom: 1rem;">
+                                ⚡ תנאי: מוצג רק אם "${escapeHtml(block.content.questionText)}" ${escapeHtml(block.content.operator)} "${escapeHtml(block.content.value)}"
+                            </p>
+                            <div style="background: rgba(255,255,255,0.1); padding: 1rem; border-radius: 8px;">
+                    `;
+
+                    block.children.forEach(childId => {
+                        const child = getBlock(childId);
+                        if (child) html += renderBlockPreview(child, depth + 1);
+                    });
+
+                    html += `</div></div>`;
+                    return html;
+                }
+                return '';
+            }
+
+            rootBlocks.forEach(block => {
+                previewHTML += renderBlockPreview(block);
+            });
+
+            previewHTML += '</div>';
+
+            showModal('🔍 תצוגה מקדימה', previewHTML, [
+                { text: 'סגור', class: 'btn-secondary', onclick: 'closeModal()' }
+            ]);
+        }
+
+        // Legacy function stubs (for backward compatibility - no longer needed)
+        function addSectionNode() { showSectionConfigModal(null); }
+        function createSection() { /* Redirected to new system */ }
+        function deleteQuestion() { /* Redirected to new system */ }
+        function editQuestionProperties() { /* Redirected to new system */ }
+        function addCondition() { /* Redirected to new system */ }
+        function saveCondition() { /* Redirected to new system */ }
+        function removeSection() { /* Redirected to new system */ }
+        function editSectionTitle() { /* Redirected to new system */ }
+        function updateSectionTitle() { /* Redirected to new system */ }
+    </script>
+</body>
+</html>

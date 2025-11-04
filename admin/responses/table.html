@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>תצוגת טבלה - תשובות</title>
+    <link rel="stylesheet" href="../../style.css?ver=2.0.1">
+    <link rel="stylesheet" href="../admin.css?ver=2.0.1">
+    <style>
+        /* Ensure body and html don't allow horizontal scroll */
+        html, body {
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
+        .admin-body {
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
+        .admin-main {
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box;
+            /* Ensure it doesn't exceed viewport minus sidebar */
+            width: calc(100vw - var(--sidebar-width));
+        }
+
+        .table-container {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            max-width: 100%;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .table-filters {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        .filter-select {
+            padding: 0.5rem 1rem;
+            border: 2px solid var(--gray-300);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            min-width: 200px;
+        }
+
+        .table-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-export {
+            padding: 0.5rem 1rem;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .btn-export:hover {
+            background: var(--primary-dark);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 70vh;
+            max-width: 100%;
+            width: 100%;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .responses-grid {
+            border-collapse: collapse;
+            width: max-content;
+            min-width: 100%;
+            font-size: 0.875rem;
+        }
+
+        .responses-grid thead {
+            position: sticky;
+            top: 0;
+            background: var(--gray-50);
+            z-index: 10;
+        }
+
+        .responses-grid th {
+            padding: 0.75rem;
+            text-align: right;
+            font-weight: 600;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+            background: var(--gray-100);
+            white-space: nowrap;
+            min-width: 150px;
+        }
+
+        .responses-grid th.user-column {
+            position: sticky;
+            right: 0;
+            z-index: 20;
+            background: var(--gray-200);
+            min-width: 100px;
+            max-width: 150px;
+            box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .responses-grid td {
+            padding: 0.75rem;
+            border: 1px solid var(--gray-200);
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .responses-grid td.user-cell {
+            position: sticky;
+            right: 0;
+            background: white;
+            font-weight: 600;
+            color: var(--primary-color);
+            z-index: 5;
+            box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .responses-grid tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        .responses-grid tbody tr:hover td.user-cell {
+            background: var(--gray-50);
+        }
+
+        .empty-cell {
+            color: var(--gray-400);
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--gray-500);
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 2rem;
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-item-label {
+            font-size: 0.75rem;
+            color: var(--gray-600);
+        }
+
+        .stat-item-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .question-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .question-id {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+
+        .cell-tooltip {
+            position: relative;
+        }
+
+        .cell-tooltip:hover::after {
+            content: attr(data-full);
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--gray-900);
+            color: white;
+            padding: 0.5rem;
+            border-radius: 4px;
+            white-space: normal;
+            max-width: 300px;
+            z-index: 100;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body class="admin-body">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">👨‍💼</div>
+            <h2>פאנל ניהול</h2>
+            <p class="admin-name" id="admin-name">טוען...</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="../dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>לוח בקרה</span>
+            </a>
+            <a href="../users/" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span>ניהול משתמשים</span>
+            </a>
+            <a href="../forms/" class="nav-item">
+                <span class="nav-icon">📝</span>
+                <span>בניית טפסים</span>
+            </a>
+            <a href="../questions/" class="nav-item">
+                <span class="nav-icon">❓</span>
+                <span>ספריית שאלות</span>
+            </a>
+            <a href="./index.html" class="nav-item">
+                <span class="nav-icon">📋</span>
+                <span>צפייה בתשובות</span>
+            </a>
+            <a href="./table.html" class="nav-item active">
+                <span class="nav-icon">📊</span>
+                <span>תצוגת טבלה</span>
+            </a>
+            <a href="#" class="nav-item nav-item-danger" onclick="logout()">
+                <span class="nav-icon">🚪</span>
+                <span>התנתק</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p>גרסה 1.0</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <header class="admin-header">
+            <h1>תצוגת טבלה - תשובות משתמשים</h1>
+            <p>צפייה בתשובות בפורמט טבלה</p>
+        </header>
+
+        <div class="table-container">
+            <div class="table-header">
+                <div class="table-filters">
+                    <div class="filter-group">
+                        <label class="filter-label">בחר טופס</label>
+                        <select id="form-filter" class="filter-select">
+                            <option value="">טוען...</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">הצג</label>
+                        <select id="view-mode" class="filter-select">
+                            <option value="users-questions">משתמשים × שאלות</option>
+                            <option value="questions-users">שאלות × משתמשים</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-actions">
+                    <button class="btn-export" onclick="exportToCSV()">📥 ייצוא ל-CSV</button>
+                </div>
+            </div>
+
+            <div class="stats-bar" id="stats-bar" style="display: none;">
+                <div class="stat-item">
+                    <span class="stat-item-label">משתמשים</span>
+                    <span class="stat-item-value" id="stat-users">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-item-label">שאלות</span>
+                    <span class="stat-item-value" id="stat-questions">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-item-label">תשובות</span>
+                    <span class="stat-item-value" id="stat-responses">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-item-label">אחוז מילוי</span>
+                    <span class="stat-item-value" id="stat-completion">0%</span>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <div class="loading" id="loading">
+                    טוען נתונים...
+                </div>
+                <table class="responses-grid" id="responses-table" style="display: none;">
+                    <thead id="table-head"></thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="../admin.js"></script>
+    <script>
+        let currentData = null;
+        let currentForm = null;
+
+        // Load forms on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadForms();
+        });
+
+        async function loadForms() {
+            try {
+                console.log('Loading forms...');
+                const response = await fetch('../api.php?action=get_forms', {
+                    credentials: 'include'
+                });
+                console.log('Forms response status:', response.status);
+
+                const data = await response.json();
+                console.log('Forms data:', data);
+
+                if (data.success) {
+                    const formFilter = document.getElementById('form-filter');
+                    formFilter.innerHTML = '<option value="">כל הטפסים</option>';
+
+                    data.forms.forEach(form => {
+                        const option = document.createElement('option');
+                        option.value = form.id;
+                        option.textContent = `${form.title} (ID: ${form.id})`;
+                        formFilter.appendChild(option);
+                    });
+
+                    // Auto-select first form and load data
+                    if (data.forms.length > 0) {
+                        formFilter.value = data.forms[0].id;
+                        await loadTableData(data.forms[0].id);
+                    }
+                } else {
+                    console.error('Forms API returned error:', data.message);
+                    alert('שגיאה בטעינת טפסים: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error loading forms:', error);
+                alert('שגיאה בטעינת טפסים. בדוק שאתה מחובר למערכת.');
+            }
+        }
+
+        // Load table data when form changes
+        document.getElementById('form-filter').addEventListener('change', async (e) => {
+            const formId = e.target.value;
+            if (formId) {
+                await loadTableData(formId);
+            }
+        });
+
+        // Reload when view mode changes
+        document.getElementById('view-mode').addEventListener('change', () => {
+            if (currentData && currentForm) {
+                renderTable(currentData, currentForm);
+            }
+        });
+
+        async function loadTableData(formId) {
+            currentForm = formId;
+            console.log('Loading table data for form:', formId);
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('responses-table').style.display = 'none';
+
+            try {
+                const response = await fetch(`../api.php?action=get_table_data&form_id=${formId}`, {
+                    credentials: 'include'
+                });
+                console.log('Table data response status:', response.status);
+
+                const data = await response.json();
+                console.log('Table data received:', {
+                    success: data.success,
+                    users: data.data?.users?.length,
+                    questions: data.data?.questions?.length,
+                    answers: Object.keys(data.data?.answers || {}).length
+                });
+
+                if (data.success) {
+                    currentData = data.data;
+                    renderTable(data.data, formId);
+                } else {
+                    console.error('Table data API error:', data.message);
+                    alert('שגיאה בטעינת נתונים: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error loading table data:', error);
+                alert('שגיאה בטעינת נתונים: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function renderTable(data, formId) {
+            const viewMode = document.getElementById('view-mode').value;
+            const table = document.getElementById('responses-table');
+            const thead = document.getElementById('table-head');
+            const tbody = document.getElementById('table-body');
+
+            // Clear existing content
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            if (viewMode === 'users-questions') {
+                renderUsersQuestionsView(data, thead, tbody);
+            } else {
+                renderQuestionsUsersView(data, thead, tbody);
+            }
+
+            // Update stats
+            updateStats(data);
+
+            table.style.display = 'table';
+        }
+
+        function renderUsersQuestionsView(data, thead, tbody) {
+            // Create header row: User | Question1 | Question2 | ...
+            const headerRow = document.createElement('tr');
+            const userHeader = document.createElement('th');
+            userHeader.className = 'user-column';
+            userHeader.textContent = 'משתמש';
+            headerRow.appendChild(userHeader);
+
+            data.questions.forEach(q => {
+                const th = document.createElement('th');
+                th.innerHTML = `
+                    <div class="question-header">
+                        <span class="question-id">ש${q.id}</span>
+                        <span>${q.question_text.substring(0, 50)}${q.question_text.length > 50 ? '...' : ''}</span>
+                    </div>
+                `;
+                th.title = q.question_text;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+
+            // Create rows for each user
+            data.users.forEach(user => {
+                const row = document.createElement('tr');
+
+                // User cell
+                const userCell = document.createElement('td');
+                userCell.className = 'user-cell';
+                userCell.textContent = user.tz || user.full_name || `User ${user.id}`;
+                row.appendChild(userCell);
+
+                // Answer cells
+                data.questions.forEach(question => {
+                    const td = document.createElement('td');
+                    const answerKey = `${user.id}_${question.id}`;
+                    const answer = data.answers[answerKey];
+
+                    if (answer) {
+                        let displayValue = answer.answer_value || answer.answer_json || '-';
+
+                        // Parse JSON if needed
+                        if (answer.answer_json) {
+                            try {
+                                const parsed = JSON.parse(answer.answer_json);
+                                displayValue = Array.isArray(parsed) ? parsed.join(', ') : displayValue;
+                            } catch (e) {
+                                displayValue = answer.answer_json;
+                            }
+                        }
+
+                        td.textContent = displayValue;
+                        td.className = 'cell-tooltip';
+                        td.setAttribute('data-full', displayValue);
+                    } else {
+                        td.textContent = '-';
+                        td.className = 'empty-cell';
+                    }
+
+                    row.appendChild(td);
+                });
+
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderQuestionsUsersView(data, thead, tbody) {
+            // Create header row: Question | User1 | User2 | ...
+            const headerRow = document.createElement('tr');
+            const questionHeader = document.createElement('th');
+            questionHeader.className = 'user-column';
+            questionHeader.textContent = 'שאלה';
+            headerRow.appendChild(questionHeader);
+
+            data.users.forEach(user => {
+                const th = document.createElement('th');
+                th.textContent = user.tz || user.full_name || `User ${user.id}`;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+
+            // Create rows for each question
+            data.questions.forEach(question => {
+                const row = document.createElement('tr');
+
+                // Question cell
+                const questionCell = document.createElement('td');
+                questionCell.className = 'user-cell';
+                questionCell.innerHTML = `
+                    <div class="question-header">
+                        <span class="question-id">ש${question.id}</span>
+                        <span>${question.question_text.substring(0, 40)}...</span>
+                    </div>
+                `;
+                questionCell.title = question.question_text;
+                row.appendChild(questionCell);
+
+                // Answer cells for each user
+                data.users.forEach(user => {
+                    const td = document.createElement('td');
+                    const answerKey = `${user.id}_${question.id}`;
+                    const answer = data.answers[answerKey];
+
+                    if (answer) {
+                        let displayValue = answer.answer_value || answer.answer_json || '-';
+
+                        if (answer.answer_json) {
+                            try {
+                                const parsed = JSON.parse(answer.answer_json);
+                                displayValue = Array.isArray(parsed) ? parsed.join(', ') : displayValue;
+                            } catch (e) {
+                                displayValue = answer.answer_json;
+                            }
+                        }
+
+                        td.textContent = displayValue;
+                        td.className = 'cell-tooltip';
+                        td.setAttribute('data-full', displayValue);
+                    } else {
+                        td.textContent = '-';
+                        td.className = 'empty-cell';
+                    }
+
+                    row.appendChild(td);
+                });
+
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateStats(data) {
+            const statsBar = document.getElementById('stats-bar');
+            statsBar.style.display = 'flex';
+
+            document.getElementById('stat-users').textContent = data.users.length;
+            document.getElementById('stat-questions').textContent = data.questions.length;
+
+            const totalAnswers = Object.keys(data.answers).length;
+            document.getElementById('stat-responses').textContent = totalAnswers;
+
+            const totalPossible = data.users.length * data.questions.length;
+            const completionRate = totalPossible > 0 ? Math.round((totalAnswers / totalPossible) * 100) : 0;
+            document.getElementById('stat-completion').textContent = completionRate + '%';
+        }
+
+        function exportToCSV() {
+            if (!currentData) {
+                alert('אין נתונים לייצוא');
+                return;
+            }
+
+            const viewMode = document.getElementById('view-mode').value;
+            let csv = '';
+
+            if (viewMode === 'users-questions') {
+                // Header
+                csv = 'משתמש,' + currentData.questions.map(q => `"${q.question_text}"`).join(',') + '\n';
+
+                // Rows
+                currentData.users.forEach(user => {
+                    const userName = user.tz || user.full_name || `User ${user.id}`;
+                    const row = [userName];
+
+                    currentData.questions.forEach(question => {
+                        const answerKey = `${user.id}_${question.id}`;
+                        const answer = currentData.answers[answerKey];
+                        let value = '';
+
+                        if (answer) {
+                            value = answer.answer_value || answer.answer_json || '';
+                            if (answer.answer_json) {
+                                try {
+                                    const parsed = JSON.parse(answer.answer_json);
+                                    value = Array.isArray(parsed) ? parsed.join('; ') : value;
+                                } catch (e) {}
+                            }
+                        }
+
+                        row.push(`"${value.replace(/"/g, '""')}"`);
+                    });
+
+                    csv += row.join(',') + '\n';
+                });
+            } else {
+                // Questions × Users view
+                csv = 'שאלה,' + currentData.users.map(u => `"${u.tz || u.full_name || 'User ' + u.id}"`).join(',') + '\n';
+
+                currentData.questions.forEach(question => {
+                    const row = [`"${question.question_text}"`];
+
+                    currentData.users.forEach(user => {
+                        const answerKey = `${user.id}_${question.id}`;
+                        const answer = currentData.answers[answerKey];
+                        let value = '';
+
+                        if (answer) {
+                            value = answer.answer_value || answer.answer_json || '';
+                            if (answer.answer_json) {
+                                try {
+                                    const parsed = JSON.parse(answer.answer_json);
+                                    value = Array.isArray(parsed) ? parsed.join('; ') : value;
+                                } catch (e) {}
+                            }
+                        }
+
+                        row.push(`"${value.replace(/"/g, '""')}"`);
+                    });
+
+                    csv += row.join(',') + '\n';
+                });
+            }
+
+            // Download
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `responses_form_${currentForm}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        function logout() {
+            if (confirm('האם אתה בטוח שברצונך להתנתק?')) {
+                window.location.href = '../index.html';
+            }
+        }
+    </script>
+</body>
+</html>

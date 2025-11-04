@@ -1,0 +1,692 @@
+<?php
+// התחלת Session לאימות מבוסס-Session
+session_start();
+
+require_once 'config.php';
+
+header('Content-Type: application/json');
+// הגדרות CORS - רק עבור הדומיין הזה (מאובטח יותר מ-*)
+$allowed_origin = 'https://qr.bot4wa.com';
+header("Access-Control-Allow-Origin: $allowed_origin");
+header('Access-Control-Allow-Credentials: true'); // אפשר שליחת Cookies
+header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+// כותרות אבטחה נוספות
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('X-XSS-Protection: 1; mode=block');
+
+// אם זו בקשת OPTIONS (Preflight), מחזירים תשובה מידית
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+// קבלת נתוני POST (מכיוון שהם נשלחים כ-JSON מה-JS)
+$input = json_decode(file_get_contents('php://input'), true);
+$action = $input['action'] ?? $_GET['action'] ?? '';
+$db = getDbConnection();
+$userIP = $_SERVER['REMOTE_ADDR'];
+
+// הסרנו את בדיקת המכשיר הנייד - המערכת פתוחה לכולם
+// העיצוב מותאם למובייל אבל ניתן לגשת גם ממחשב
+
+
+// === 1. טיפול באימות כניסה (LOGIN) ===
+if ($action === 'login') {
+    $tz = $input['tz'] ?? '';
+
+    // Validate that ID is numeric and has correct length (7 or 9 digits)
+    if (empty($tz) || !is_numeric($tz)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'מספר זהוי לא תקין.']);
+        exit;
+    }
+
+    $idLength = strlen($tz);
+    if ($idLength !== 7 && $idLength !== 9) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'מספר זהוי חייב להכיל 7 או 9 ספרות.']);
+        exit;
+    }
+
+    // 1. קריאת נתוני משתמש - get user with id_type
+    $stmt = $db->prepare("SELECT id, is_blocked, failed_attempts, id_type FROM users WHERE tz = ?");
+    $stmt->execute([$tz]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Validate that the ID matches the expected type
+    if ($user) {
+        $expectedLength = ($user['id_type'] ?? 'tz') === 'tz' ? 9 : 7;
+        if ($idLength !== $expectedLength) {
+            http_response_code(400);
+            $expectedType = $expectedLength === 9 ? 'תעודת זהות (9 ספרות)' : 'מספר אישי (7 ספרות)';
+            echo json_encode(['success' => false, 'message' => "מספר זה רשום כ-$expectedType"]);
+            exit;
+        }
+    }
+
+    if ($user) {
+        if ($user['is_blocked']) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'הכניסה חסומה עבורך.']);
+            exit;
+        }
+
+        // אימות מוצלח!
+        // 2. איפוס ניסיונות כושלים ועדכון זמן
+        $db->prepare("UPDATE users SET failed_attempts = 0, last_login = ?, ip_address = ? WHERE id = ?")
+           ->execute([date('Y-m-d H:i:s'), $userIP, $user['id']]);
+
+        // 3. Get assigned form for user
+        $stmt = $db->prepare("SELECT form_id FROM user_forms WHERE user_id = ? AND status = 'assigned' LIMIT 1");
+        $stmt->execute([$user['id']]);
+        $assignedForm = $stmt->fetch(PDO::FETCH_ASSOC);
+        $formId = $assignedForm ? $assignedForm['form_id'] : 1; // Default to form 1 if no assignment
+
+        // 4. יצירת Session למשתמש
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['user_tz'] = $tz;
+        $_SESSION['authenticated'] = true;
+        $_SESSION['login_time'] = time();
+        $_SESSION['form_id'] = $formId; // Store assigned form in session
+
+        // 5. שליפת נתונים קודמים - גם answer_value וגם answer_json
+        $stmt = $db->prepare("SELECT question_id, answer_value, answer_json FROM form_responses WHERE user_id = ?");
+        $stmt->execute([$user['id']]);
+        $responses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // מיזוג התשובות - מעדיף answer_json אם קיים, אחרת answer_value
+        $previousData = [];
+        foreach ($responses as $response) {
+            $questionId = $response['question_id'];
+            if (!empty($response['answer_json'])) {
+                // אם יש answer_json, משתמשים בו (כבר JSON)
+                $previousData[$questionId] = $response['answer_json'];
+            } else {
+                // אחרת משתמשים ב-answer_value
+                $previousData[$questionId] = $response['answer_value'];
+            }
+        }
+
+        // שמירה ב-cache של הסשן
+        $_SESSION['cached_answers'] = $previousData;
+
+        // 6. חישוב השאלה הראשונה שאין לה תשובה
+        // Check if form uses new structure format
+        $stmt = $db->prepare("SELECT structure_json FROM forms WHERE id = ?");
+        $stmt->execute([$formId]);
+        $formData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $firstUnansweredIndex = 0;
+
+        if ($formData && !empty($formData['structure_json'])) {
+            // New format: use structure_json
+            $structure = json_decode($formData['structure_json'], true);
+            $steps = flattenStructureToSteps($structure);
+
+            // Find first unanswered question step (skip text blocks)
+            foreach ($steps as $index => $step) {
+                if ($step['blockType'] === 'text') {
+                    // Skip text blocks - they're not questions
+                    continue;
+                }
+
+                if ($step['blockType'] === 'question') {
+                    // Check if this question has an answer
+                    if (!isset($previousData[$step['id']]) || $previousData[$step['id']] === '') {
+                        $firstUnansweredIndex = $index;
+                        break;
+                    }
+                }
+
+                // If all questions answered, stay on last step
+                if ($index === count($steps) - 1) {
+                    $firstUnansweredIndex = $index;
+                }
+            }
+        } else {
+            // Old format: use questions table
+            // מסודר לפי קטגוריה ואז לפי סדר השאלה
+            // For Form 2, only use categorized questions
+            $stmt = $db->prepare("
+                SELECT q.id
+                FROM questions q
+                JOIN form_questions fq ON q.id = fq.question_id
+                LEFT JOIN categories c ON fq.category_id = c.id
+                WHERE fq.form_id = ? AND fq.is_active = 1
+                    AND (fq.form_id != 2 OR fq.category_id IS NOT NULL)
+                ORDER BY
+                    COALESCE(c.sequence_order, 999) ASC,
+                    fq.sequence_order ASC
+            ");
+            $stmt->execute([$formId]);
+            $allQuestionIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            foreach ($allQuestionIds as $index => $questionId) {
+                if (!isset($previousData[$questionId]) || $previousData[$questionId] === '') {
+                    $firstUnansweredIndex = $index;
+                    break;
+                }
+                // אם כל השאלות נענו, נשאר על האחרונה
+                if ($index === count($allQuestionIds) - 1) {
+                    $firstUnansweredIndex = $index;
+                }
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'user_id' => $user['id'],
+            'previous_data' => $previousData,
+            'first_unanswered_index' => $firstUnansweredIndex,
+            'message' => 'כניסה מאושרת.'
+        ]);
+        exit;
+
+    } else {
+        // 4. משתמש לא קיים במערכת
+        // בטחון: לא חושפים אם הת.ז. קיימת או לא, מחזירים הודעה זהה
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'ת.ז. או סיסמה שגויים.']);
+        exit;
+    }
+}
+
+
+// === 2. טיפול בשמירת הטופס (SUBMIT) ===
+if ($action === 'submit') {
+    // 1. בדיקת אימות מבוסס-Session
+    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'נדרש אימות. אנא התחבר מחדש.']);
+        exit;
+    }
+
+    // 2. בדיקת Session Timeout (30 דקות = 1800 שניות)
+    if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time'] > 1800)) {
+        $_SESSION['authenticated'] = false;
+        http_response_code(401);
+        echo json_encode(['success' => false, 'session_expired' => true, 'message' => 'פג תוקף ההתחברות. אנא התחבר מחדש להמשך.']);
+        exit;
+    }
+
+    // Refresh session timeout
+    $_SESSION['login_time'] = time();
+
+    $userId = $_SESSION['user_id']; // משתמש מה-Session
+    $formId = $_SESSION['form_id'] ?? 1; // טופס מה-Session
+    $formData = $input['form_data'] ?? [];
+
+    if (empty($formData)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסרים פרטים לשליחה.']);
+        exit;
+    }
+
+    $db->beginTransaction();
+    $success = true;
+
+    // קבלת סוגי השאלות כדי לדעת איך לשמור את התשובות
+    $questionIds = array_keys($formData);
+    $placeholders = str_repeat('?,', count($questionIds) - 1) . '?';
+    $stmt = $db->prepare("SELECT q.id, qt.type_code FROM questions q JOIN question_types qt ON q.question_type_id = qt.id WHERE q.id IN ($placeholders)");
+    $stmt->execute($questionIds);
+    $questionTypes = $stmt->fetchAll(PDO::FETCH_KEY_PAIR); // [question_id => type_code]
+
+    foreach ($formData as $questionId => $answerValue) {
+        try {
+            $questionType = $questionTypes[$questionId] ?? 'text';
+
+            // בדיקה אם זה checkbox (מערך) או ערך פשוט
+            if ($questionType === 'checkbox') {
+                // checkbox - שמירה ב-answer_json
+                $jsonValue = is_array($answerValue) ? json_encode($answerValue, JSON_UNESCAPED_UNICODE) : $answerValue;
+                $upsertSql = "
+                    INSERT INTO form_responses (user_id, question_id, answer_json, form_id, updated_at)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(user_id, question_id, form_id)
+                    DO UPDATE SET answer_json = excluded.answer_json, answer_value = NULL, updated_at = CURRENT_TIMESTAMP, submitted_at = CURRENT_TIMESTAMP;
+                ";
+                $stmt = $db->prepare($upsertSql);
+                $stmt->execute([$userId, $questionId, $jsonValue, $formId]);
+            } else {
+                // סוג רגיל - שמירה ב-answer_value
+                $upsertSql = "
+                    INSERT INTO form_responses (user_id, question_id, answer_value, form_id, updated_at)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(user_id, question_id, form_id)
+                    DO UPDATE SET answer_value = excluded.answer_value, answer_json = NULL, updated_at = CURRENT_TIMESTAMP, submitted_at = CURRENT_TIMESTAMP;
+                ";
+                $stmt = $db->prepare($upsertSql);
+                $stmt->execute([$userId, $questionId, (string)$answerValue, $formId]);
+            }
+        } catch (\Exception $e) {
+            $success = false;
+            error_log("Error saving answer for question $questionId: " . $e->getMessage());
+            break;
+        }
+    }
+
+    if ($success) {
+        $db->commit();
+        echo json_encode(['success' => true, 'message' => 'הטופס נשמר בהצלחה!']);
+    } else {
+        $db->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בשמירת חלק מהנתונים ל-DB.']);
+    }
+    exit;
+}
+
+// === 3. טיפול בקבלת שאלות מהמאגר (GET_QUESTIONS) ===
+if ($action === 'get_questions') {
+    try {
+        // Get form_id from session (set during login)
+        $formId = $_SESSION['form_id'] ?? 1;
+
+        // First, check if form has structure_json (new format with text/condition blocks)
+        $stmt = $db->prepare("SELECT structure_json FROM forms WHERE id = ?");
+        $stmt->execute([$formId]);
+        $form = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($form && !empty($form['structure_json'])) {
+            // New format: return structure with text and condition blocks
+            $structure = json_decode($form['structure_json'], true);
+
+            echo json_encode([
+                'success' => true,
+                'structure' => $structure, // Full block structure
+                'questions' => [], // Empty for backwards compatibility
+                'total' => 0,
+                'use_structure' => true // Flag to tell frontend to use new structure
+            ]);
+            exit;
+        }
+
+        // Fallback: Load questions from old format
+        // שאילתה לקבלת כל השאלות מהטופס המוקצה למשתמש
+        // מסודר לפי קטגוריה ואז לפי סדר השאלה בתוך הקטגוריה
+        // For Form 2, only load categorized questions (category_id IS NOT NULL)
+        $stmt = $db->prepare("
+            SELECT
+                q.id,
+                q.question_text,
+                qt.type_code as type,
+                q.options,
+                q.is_required,
+                fq.sequence_order,
+                fq.section_title,
+                c.id as category_id,
+                c.name as category_name,
+                c.color as category_color,
+                c.sequence_order as category_order
+            FROM questions q
+            JOIN form_questions fq ON q.id = fq.question_id
+            JOIN question_types qt ON q.question_type_id = qt.id
+            LEFT JOIN categories c ON fq.category_id = c.id
+            WHERE fq.form_id = ? AND fq.is_active = 1
+                AND (fq.form_id != 2 OR fq.category_id IS NOT NULL)
+            ORDER BY
+                COALESCE(c.sequence_order, 999) ASC,
+                fq.sequence_order ASC
+        ");
+
+        $stmt->execute([$formId]);
+        $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // המרת השאלות לפורמט הנכון עבור הפרונטאנד
+        $formattedQuestions = [];
+        foreach ($questions as $q) {
+            $question = [
+                'id' => (string)$q['id'], // ID כמחרוזת (תואם למה שנשמר ב-form_responses)
+                'question' => $q['question_text'],
+                'type' => mapQuestionType($q['type']),
+                'required' => (bool)$q['is_required']
+            ];
+
+            // הוספת options אם קיימות
+            if (!empty($q['options'])) {
+                $options = json_decode($q['options'], true);
+                if (is_array($options)) {
+                    $question['options'] = $options;
+                }
+            }
+
+            // הוספת פרטי קטגוריה
+            if (!empty($q['category_id'])) {
+                $question['category'] = [
+                    'id' => $q['category_id'],
+                    'name' => $q['category_name'],
+                    'color' => $q['category_color']
+                ];
+            } elseif (!empty($q['section_title'])) {
+                // fallback לשדות ישנים ללא קטגוריה
+                $question['category'] = [
+                    'id' => null,
+                    'name' => $q['section_title'],
+                    'color' => '#95A5A6' // צבע ברירת מחדל
+                ];
+            }
+
+            $formattedQuestions[] = $question;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'questions' => $formattedQuestions,
+            'total' => count($formattedQuestions)
+        ]);
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'שגיאה בטעינת השאלות: ' . $e->getMessage()
+        ]);
+        exit;
+    }
+}
+
+// פונקציית עזר להמרת סוגי שאלות
+function mapQuestionType($dbType) {
+    $typeMap = [
+        'text' => 'text',
+        'text_short' => 'text',
+        'textarea' => 'textarea',
+        'number' => 'number',
+        'number_range' => 'number',
+        'email' => 'text',
+        'phone' => 'text',
+        'tz' => 'text',
+        'date' => 'text',
+        'select' => 'select',
+        'radio' => 'radio',
+        'checkbox' => 'checkbox',
+        'rating' => 'number',
+        'yes_no' => 'radio'
+    ];
+
+    return $typeMap[$dbType] ?? 'text';
+}
+
+/**
+ * Flattens block structure into sequential steps (mirrors frontend logic)
+ * Returns array of steps with their types and IDs
+ */
+function flattenStructureToSteps($blocks) {
+    $steps = [];
+    $blockMap = [];
+
+    // Create block map
+    foreach ($blocks as $block) {
+        $blockMap[$block['id']] = $block;
+    }
+
+    // Process a single block
+    $processBlock = function($block, $sectionInfo = null) use (&$steps, &$blockMap, &$processBlock) {
+        if ($block['type'] === 'section') {
+            // Process children of section
+            if (!empty($block['children'])) {
+                foreach ($block['children'] as $childId) {
+                    if (isset($blockMap[$childId])) {
+                        $processBlock($blockMap[$childId], $sectionInfo);
+                    }
+                }
+            }
+        } elseif ($block['type'] === 'text') {
+            // Text block - not a question, but counts as a step
+            $steps[] = [
+                'id' => $block['id'],
+                'type' => 'text',
+                'blockType' => 'text'
+            ];
+        } elseif ($block['type'] === 'question') {
+            // Question block
+            $steps[] = [
+                'id' => $block['id'],
+                'type' => 'question',
+                'blockType' => 'question'
+            ];
+        } elseif ($block['type'] === 'condition') {
+            // Process conditional children (they're still in the sequence)
+            if (!empty($block['children'])) {
+                foreach ($block['children'] as $childId) {
+                    if (isset($blockMap[$childId])) {
+                        $childBlock = $blockMap[$childId];
+                        // Add conditional marker
+                        if ($childBlock['type'] === 'text') {
+                            $steps[] = [
+                                'id' => $childBlock['id'],
+                                'type' => 'text',
+                                'blockType' => 'text',
+                                'conditional' => true
+                            ];
+                        } elseif ($childBlock['type'] === 'question') {
+                            $steps[] = [
+                                'id' => $childBlock['id'],
+                                'type' => 'question',
+                                'blockType' => 'question',
+                                'conditional' => true
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    // Process top-level blocks
+    foreach ($blocks as $block) {
+        if (!isset($block['parentId']) || $block['parentId'] === null) {
+            $processBlock($block);
+        }
+    }
+
+    return $steps;
+}
+
+// === 4. בדיקת סטטוס סשן (CHECK_SESSION) ===
+if ($action === 'check_session') {
+    if (isset($_SESSION['authenticated']) && $_SESSION['authenticated'] === true) {
+        // בדיקת Session Timeout (30 דקות = 1800 שניות)
+        $sessionAge = time() - ($_SESSION['login_time'] ?? time());
+
+        if ($sessionAge > 1800) {
+            // Session expired - don't destroy, just mark unauthenticated
+            // User's progress is saved in database via auto-save
+            $_SESSION['authenticated'] = false;
+            echo json_encode([
+                'success' => true,
+                'authenticated' => false,
+                'session_expired' => true,
+                'message' => 'פג תוקף ההתחברות. אנא התחבר מחדש להמשך.'
+            ]);
+            exit;
+        }
+
+        // Refresh session timeout on activity
+        $_SESSION['login_time'] = time();
+
+        $userId = $_SESSION['user_id'];
+
+        // שליפת נתונים קודמים מה-cache או מהמאגר
+        $previousData = $_SESSION['cached_answers'] ?? [];
+
+        if (empty($previousData)) {
+            $stmt = $db->prepare("SELECT question_id, answer_value, answer_json FROM form_responses WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $responses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // מיזוג התשובות - מעדיף answer_json אם קיים, אחרת answer_value
+            $previousData = [];
+            foreach ($responses as $response) {
+                $questionId = $response['question_id'];
+                if (!empty($response['answer_json'])) {
+                    $previousData[$questionId] = $response['answer_json'];
+                } else {
+                    $previousData[$questionId] = $response['answer_value'];
+                }
+            }
+            $_SESSION['cached_answers'] = $previousData;
+        }
+
+        // Get form_id from session
+        $formId = $_SESSION['form_id'] ?? 1;
+
+        // חישוב השאלה הראשונה שאין לה תשובה
+        // Check if form uses new structure format
+        $stmt = $db->prepare("SELECT structure_json FROM forms WHERE id = ?");
+        $stmt->execute([$formId]);
+        $formData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $firstUnansweredIndex = 0;
+
+        if ($formData && !empty($formData['structure_json'])) {
+            // New format: use structure_json
+            $structure = json_decode($formData['structure_json'], true);
+            $steps = flattenStructureToSteps($structure);
+
+            // Find first unanswered question step (skip text blocks)
+            foreach ($steps as $index => $step) {
+                if ($step['blockType'] === 'text') {
+                    // Skip text blocks - they're not questions
+                    continue;
+                }
+
+                if ($step['blockType'] === 'question') {
+                    // Check if this question has an answer
+                    if (!isset($previousData[$step['id']]) || $previousData[$step['id']] === '') {
+                        $firstUnansweredIndex = $index;
+                        break;
+                    }
+                }
+
+                // If all questions answered, stay on last step
+                if ($index === count($steps) - 1) {
+                    $firstUnansweredIndex = $index;
+                }
+            }
+        } else {
+            // Old format: use questions table
+            // מסודר לפי קטגוריה ואז לפי סדר השאלה
+            // For Form 2, only use categorized questions
+            $stmt = $db->prepare("
+                SELECT q.id
+                FROM questions q
+                JOIN form_questions fq ON q.id = fq.question_id
+                LEFT JOIN categories c ON fq.category_id = c.id
+                WHERE fq.form_id = ? AND fq.is_active = 1
+                    AND (fq.form_id != 2 OR fq.category_id IS NOT NULL)
+                ORDER BY
+                    COALESCE(c.sequence_order, 999) ASC,
+                    fq.sequence_order ASC
+            ");
+            $stmt->execute([$formId]);
+            $allQuestionIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            foreach ($allQuestionIds as $index => $questionId) {
+                if (!isset($previousData[$questionId]) || $previousData[$questionId] === '') {
+                    $firstUnansweredIndex = $index;
+                    break;
+                }
+                if ($index === count($allQuestionIds) - 1) {
+                    $firstUnansweredIndex = $index;
+                }
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'authenticated' => true,
+            'user_id' => $userId,
+            'previous_data' => $previousData,
+            'first_unanswered_index' => $firstUnansweredIndex
+        ]);
+    } else {
+        echo json_encode(['success' => true, 'authenticated' => false]);
+    }
+    exit;
+}
+
+// === 5. טיפול בשמירה אוטומטית של תשובה בודדת (AUTO_SAVE) ===
+if ($action === 'auto_save') {
+    // 1. בדיקת אימות מבוסס-Session
+    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'נדרש אימות. אנא התחבר מחדש.']);
+        exit;
+    }
+
+    // 2. בדיקת Session Timeout (30 דקות = 1800 שניות)
+    if (isset($_SESSION['login_time']) && (time() - $_SESSION['login_time'] > 1800)) {
+        $_SESSION['authenticated'] = false;
+        http_response_code(401);
+        echo json_encode(['success' => false, 'session_expired' => true, 'message' => 'פג תוקף ההתחברות. התשובות נשמרו.']);
+        exit;
+    }
+
+    // Refresh session timeout on activity
+    $_SESSION['login_time'] = time();
+
+    $userId = $_SESSION['user_id'];
+    $formId = $_SESSION['form_id'] ?? 1; // טופס מה-Session
+    $questionId = $input['question_id'] ?? '';
+    $answerValue = $input['answer_value'] ?? '';
+
+    if (empty($questionId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר question_id.']);
+        exit;
+    }
+
+    try {
+        // קבלת סוג השאלה כדי לדעת איך לשמור
+        $stmt = $db->prepare("SELECT qt.type_code FROM questions q JOIN question_types qt ON q.question_type_id = qt.id WHERE q.id = ?");
+        $stmt->execute([$questionId]);
+        $questionType = $stmt->fetchColumn() ?: 'text';
+
+        // שמירה או עדכון התשובה במאגר
+        if ($questionType === 'checkbox') {
+            // checkbox - שמירה ב-answer_json
+            $jsonValue = is_array($answerValue) ? json_encode($answerValue, JSON_UNESCAPED_UNICODE) : $answerValue;
+            $upsertSql = "
+                INSERT INTO form_responses (user_id, question_id, answer_json, form_id, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id, question_id, form_id)
+                DO UPDATE SET answer_json = excluded.answer_json, answer_value = NULL, updated_at = CURRENT_TIMESTAMP, submitted_at = CURRENT_TIMESTAMP;
+            ";
+            $stmt = $db->prepare($upsertSql);
+            $stmt->execute([$userId, $questionId, $jsonValue, $formId]);
+        } else {
+            // סוג רגיל - שמירה ב-answer_value
+            $upsertSql = "
+                INSERT INTO form_responses (user_id, question_id, answer_value, form_id, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id, question_id, form_id)
+                DO UPDATE SET answer_value = excluded.answer_value, answer_json = NULL, updated_at = CURRENT_TIMESTAMP, submitted_at = CURRENT_TIMESTAMP;
+            ";
+            $stmt = $db->prepare($upsertSql);
+            $stmt->execute([$userId, $questionId, (string)$answerValue, $formId]);
+        }
+
+        // עדכון cache בסשן
+        if (!isset($_SESSION['cached_answers'])) {
+            $_SESSION['cached_answers'] = [];
+        }
+        $_SESSION['cached_answers'][$questionId] = $answerValue;
+
+        echo json_encode(['success' => true, 'message' => 'נשמר בהצלחה.']);
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בשמירה: ' . $e->getMessage()]);
+        exit;
+    }
+}
+
+// אם לא נמצאה פעולה מתאימה
+http_response_code(404);
+echo json_encode(['success' => false, 'message' => 'Endpoint לא נמצא.']);
+?>

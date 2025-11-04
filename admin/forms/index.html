@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בניית טפסים - מערכת ניהול</title>
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="../admin.css">
+</head>
+<body class="admin-body">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">👨‍💼</div>
+            <h2>פאנל ניהול</h2>
+            <p class="admin-name" id="admin-name">טוען...</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="../dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>לוח בקרה</span>
+            </a>
+            <a href="../users/" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span>ניהול משתמשים</span>
+            </a>
+            <a href="../forms/" class="nav-item active">
+                <span class="nav-icon">📝</span>
+                <span>בניית טפסים</span>
+            </a>
+            <a href="../questions/" class="nav-item">
+                <span class="nav-icon">❓</span>
+                <span>ספריית שאלות</span>
+            </a>
+            <a href="../responses/" class="nav-item">
+                <span class="nav-icon">📋</span>
+                <span>צפייה בתשובות</span>
+            </a>
+            <a href="#" class="nav-item nav-item-danger" onclick="logout()">
+                <span class="nav-icon">🚪</span>
+                <span>התנתק</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p>גרסה 1.0</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <header class="admin-header">
+            <h1>בניית טפסים</h1>
+            <p>צור וערוך טפסים למשתמשים</p>
+        </header>
+
+        <!-- Message container -->
+        <div id="message-container"></div>
+
+        <!-- Toolbar -->
+        <section class="section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <button class="btn btn-primary" onclick="showCreateFormModal()">
+                    <span>➕</span>
+                    <span>צור טופס חדש</span>
+                </button>
+                <button class="btn btn-secondary" onclick="loadForms()">
+                    <span>🔄</span>
+                    <span>רענן</span>
+                </button>
+            </div>
+
+            <!-- Forms Grid -->
+            <div id="forms-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem;">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>טוען טפסים...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="../admin.js"></script>
+    <script>
+        // Load forms on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadForms();
+        });
+
+        // Load forms
+        async function loadForms() {
+            const container = document.getElementById('forms-grid');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>טוען טפסים...</p></div>';
+
+            try {
+                const data = await apiRequest('list_forms');
+
+                if (!data || !data.success) {
+                    container.innerHTML = '<p class="text-center" style="grid-column: 1 / -1;">שגיאה בטעינת טפסים</p>';
+                    return;
+                }
+
+                renderForms(data.forms);
+
+            } catch (error) {
+                console.error('Error loading forms:', error);
+                container.innerHTML = '<p class="text-center" style="grid-column: 1 / -1;">שגיאה בטעינת טפסים</p>';
+            }
+        }
+
+        // Render forms grid
+        function renderForms(forms) {
+            const container = document.getElementById('forms-grid');
+
+            if (!forms || forms.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                        <div style="font-size: 4rem; margin-bottom: 1rem;">📝</div>
+                        <h3>אין טפסים במערכת</h3>
+                        <p style="color: var(--gray-600); margin-bottom: 1rem;">צור טופס חדש כדי להתחיל</p>
+                        <button class="btn btn-primary" onclick="showCreateFormModal()">צור טופס</button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = forms.map(form => `
+                <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
+                        <div>
+                            <h3 style="margin: 0 0 0.5rem 0; font-size: 1.25rem;">${escapeHtml(form.title)}</h3>
+                            ${form.description ? `<p style="margin: 0; color: var(--gray-600); font-size: 0.875rem;">${escapeHtml(form.description)}</p>` : ''}
+                        </div>
+                        ${form.is_active == 1
+                            ? '<span class="badge badge-success">פעיל</span>'
+                            : '<span class="badge badge-danger">לא פעיל</span>'}
+                    </div>
+
+                    <div style="display: flex; gap: 2rem; margin-bottom: 1.5rem; padding: 1rem; background: var(--gray-50); border-radius: 8px;">
+                        <div>
+                            <div style="color: var(--gray-600); font-size: 0.75rem; margin-bottom: 0.25rem;">שאלות</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);">${form.question_count || 0}</div>
+                        </div>
+                        <div>
+                            <div style="color: var(--gray-600); font-size: 0.75rem; margin-bottom: 0.25rem;">משתמשים</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--success-color);">${form.assigned_users || 0}</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 0.5rem; margin-top: auto;">
+                        <button class="btn btn-primary" onclick="viewForm(${form.id})" style="flex: 1;">
+                            👁️ צפה
+                        </button>
+                        <button class="btn btn-secondary" onclick="editForm(${form.id})" style="padding: 0.625rem 1rem;">
+                            ✏️
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Show create form modal - redirect to new builder
+        function showCreateFormModal() {
+            window.location.href = './builder-v2.html';
+        }
+
+        // View form details
+        async function viewForm(formId) {
+            try {
+                const data = await apiRequest('get_form', { form_id: formId });
+
+                if (!data || !data.success) {
+                    showError('שגיאה בטעינת טופס');
+                    return;
+                }
+
+                const form = data.form;
+                const questions = data.questions;
+
+                const questionsHtml = questions.length > 0
+                    ? questions.map((q, index) => `
+                        <div style="padding: 1rem; border: 1px solid var(--gray-200); border-radius: 8px; margin-bottom: 0.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div style="flex: 1;">
+                                    <strong>${index + 1}. ${escapeHtml(q.question_text)}</strong>
+                                    <div style="color: var(--gray-600); font-size: 0.875rem; margin-top: 0.25rem;">
+                                        סוג: ${escapeHtml(q.type_name)} ${q.is_required ? ' • נדרש' : ''}
+                                    </div>
+                                </div>
+                                ${q.section_title ? `<span class="badge badge-info">${escapeHtml(q.section_title)}</span>` : ''}
+                            </div>
+                        </div>
+                    `).join('')
+                    : '<p style="text-align: center; color: var(--gray-600);">אין שאלות בטופס זה</p>';
+
+                showModal(`טופס: ${escapeHtml(form.title)}`, `
+                    <div>
+                        ${form.description ? `<p style="color: var(--gray-600); margin-bottom: 1.5rem;">${escapeHtml(form.description)}</p>` : ''}
+
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div style="flex: 1; padding: 1rem; background: var(--gray-50); border-radius: 8px;">
+                                <div style="color: var(--gray-600); font-size: 0.875rem;">שאלות</div>
+                                <div style="font-size: 1.5rem; font-weight: 700;">${questions.length}</div>
+                            </div>
+                            <div style="flex: 1; padding: 1rem; background: var(--gray-50); border-radius: 8px;">
+                                <div style="color: var(--gray-600); font-size: 0.875rem;">סטטוס</div>
+                                <div style="font-size: 1.5rem; font-weight: 700;">
+                                    ${form.is_active == 1 ? '✅ פעיל' : '❌ לא פעיל'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 style="margin-bottom: 1rem;">שאלות בטופס:</h4>
+                        <div style="max-height: 400px; overflow-y: auto;">
+                            ${questionsHtml}
+                        </div>
+                    </div>
+                `, [
+                    {
+                        text: 'סגור',
+                        class: 'btn-secondary',
+                        onclick: 'closeModal()'
+                    }
+                ]);
+
+            } catch (error) {
+                console.error('Error viewing form:', error);
+                showError('שגיאה בטעינת טופס');
+            }
+        }
+
+        // Edit form - redirect to new builder
+        function editForm(formId) {
+            window.location.href = `./builder-v2.html?form_id=${formId}`;
+        }
+    </script>
+</body>
+</html>

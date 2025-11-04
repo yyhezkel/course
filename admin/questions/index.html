@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ספריית שאלות - מערכת ניהול</title>
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="../admin.css">
+</head>
+<body class="admin-body">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">👨‍💼</div>
+            <h2>פאנל ניהול</h2>
+            <p class="admin-name" id="admin-name">טוען...</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="../dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>לוח בקרה</span>
+            </a>
+            <a href="../users/" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span>ניהול משתמשים</span>
+            </a>
+            <a href="../forms/" class="nav-item">
+                <span class="nav-icon">📝</span>
+                <span>בניית טפסים</span>
+            </a>
+            <a href="../questions/" class="nav-item active">
+                <span class="nav-icon">❓</span>
+                <span>ספריית שאלות</span>
+            </a>
+            <a href="../responses/" class="nav-item">
+                <span class="nav-icon">📋</span>
+                <span>צפייה בתשובות</span>
+            </a>
+            <a href="#" class="nav-item nav-item-danger" onclick="logout()">
+                <span class="nav-icon">🚪</span>
+                <span>התנתק</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p>גרסה 1.0</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <header class="admin-header">
+            <h1>ספריית שאלות</h1>
+            <p>נהל את כל השאלות במערכת</p>
+        </header>
+
+        <!-- Message container -->
+        <div id="message-container"></div>
+
+        <!-- Toolbar -->
+        <section class="section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="showCreateQuestionModal()">
+                    <span>➕</span>
+                    <span>הוסף שאלה</span>
+                </button>
+
+                <div style="display: flex; gap: 1rem; align-items: center; flex: 1; max-width: 600px;">
+                    <input
+                        type="text"
+                        id="search-input"
+                        class="form-input"
+                        placeholder="חפש שאלה..."
+                        style="flex: 1;"
+                        onkeyup="handleSearch(event)"
+                    >
+                    <select id="type-filter" class="form-select" style="width: 200px;" onchange="loadQuestions()">
+                        <option value="">כל הסוגים</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="loadQuestions()">
+                        <span>🔄</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Questions Grid -->
+            <div id="questions-container">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>טוען שאלות...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="../admin.js"></script>
+    <script>
+        let questionTypes = [];
+        let currentSearch = '';
+        let currentTypeFilter = '';
+
+        // Load on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadQuestionTypes();
+            loadQuestions();
+        });
+
+        // Load question types
+        async function loadQuestionTypes() {
+            try {
+                const data = await apiRequest('get_question_types');
+
+                if (data && data.success) {
+                    questionTypes = data.types;
+
+                    // Populate filter dropdown
+                    const filterSelect = document.getElementById('type-filter');
+                    filterSelect.innerHTML = '<option value="">כל הסוגים</option>' +
+                        questionTypes.map(type =>
+                            `<option value="${type.id}">${escapeHtml(type.type_name)}</option>`
+                        ).join('');
+                }
+            } catch (error) {
+                console.error('Error loading question types:', error);
+            }
+        }
+
+        // Load questions
+        async function loadQuestions() {
+            const container = document.getElementById('questions-container');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div><p>טוען שאלות...</p></div>';
+
+            currentSearch = document.getElementById('search-input').value.trim();
+            currentTypeFilter = document.getElementById('type-filter').value;
+
+            try {
+                const data = await apiRequest('list_questions', {
+                    search: currentSearch,
+                    type_id: currentTypeFilter
+                });
+
+                if (!data || !data.success) {
+                    container.innerHTML = '<p class="text-center">שגיאה בטעינת שאלות</p>';
+                    return;
+                }
+
+                renderQuestions(data.questions);
+
+            } catch (error) {
+                console.error('Error loading questions:', error);
+                container.innerHTML = '<p class="text-center">שגיאה בטעינת שאלות</p>';
+            }
+        }
+
+        // Render questions
+        function renderQuestions(questions) {
+            const container = document.getElementById('questions-container');
+
+            if (!questions || questions.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 3rem;">
+                        <div style="font-size: 4rem; margin-bottom: 1rem;">❓</div>
+                        <h3>אין שאלות</h3>
+                        <p style="color: var(--gray-600); margin-bottom: 1rem;">
+                            ${currentSearch || currentTypeFilter ? 'לא נמצאו שאלות התואמות את החיפוש' : 'הוסף שאלה חדשה כדי להתחיל'}
+                        </p>
+                        ${!currentSearch && !currentTypeFilter ? '<button class="btn btn-primary" onclick="showCreateQuestionModal()">הוסף שאלה</button>' : ''}
+                    </div>
+                `;
+                return;
+            }
+
+            // Group questions by type
+            const grouped = {};
+            questions.forEach(q => {
+                const typeName = q.type_name || 'אחר';
+                if (!grouped[typeName]) {
+                    grouped[typeName] = [];
+                }
+                grouped[typeName].push(q);
+            });
+
+            let html = '';
+
+            Object.keys(grouped).sort().forEach(typeName => {
+                html += `
+                    <div style="margin-bottom: 2rem;">
+                        <h3 style="margin-bottom: 1rem; color: var(--primary-color); display: flex; align-items: center; gap: 0.5rem;">
+                            <span>${typeName}</span>
+                            <span class="badge badge-info">${grouped[typeName].length}</span>
+                        </h3>
+                        <div style="display: grid; gap: 1rem;">
+                            ${grouped[typeName].map(q => renderQuestionCard(q)).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Render single question card
+        function renderQuestionCard(question) {
+            const optionsHtml = question.options && question.options !== 'null'
+                ? (() => {
+                    try {
+                        const opts = JSON.parse(question.options);
+                        return opts.length > 0
+                            ? `<div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--gray-600);">
+                                אפשרויות: ${opts.join(', ')}
+                               </div>`
+                            : '';
+                    } catch (e) {
+                        return '';
+                    }
+                })()
+                : '';
+
+            return `
+                <div class="card" style="padding: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; margin-bottom: 0.5rem;">
+                                ${escapeHtml(question.question_text)}
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                                <span class="badge badge-info">${escapeHtml(question.type_name)}</span>
+                                ${question.is_required ? '<span class="badge badge-warning">נדרש</span>' : ''}
+                                ${question.used_in_forms > 0
+                                    ? `<span class="badge badge-success">בשימוש ב-${question.used_in_forms} טפסים</span>`
+                                    : '<span class="badge" style="background: var(--gray-200); color: var(--gray-600);">לא בשימוש</span>'}
+                            </div>
+                            ${optionsHtml}
+                        </div>
+                        <button class="btn btn-secondary" onclick="viewQuestion(${question.id})" style="padding: 0.5rem 1rem; margin-right: 1rem;">
+                            👁️
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Handle search
+        function handleSearch(event) {
+            if (event.key === 'Enter') {
+                loadQuestions();
+            }
+        }
+
+        // View question details
+        async function viewQuestion(questionId) {
+            const data = await apiRequest('list_questions');
+            const question = data.questions.find(q => q.id == questionId);
+
+            if (!question) {
+                showError('שאלה לא נמצאה');
+                return;
+            }
+
+            let optionsHtml = '';
+            if (question.options && question.options !== 'null') {
+                try {
+                    const opts = JSON.parse(question.options);
+                    if (opts.length > 0) {
+                        optionsHtml = `
+                            <div class="form-group">
+                                <label class="form-label">אפשרויות</label>
+                                <ul style="margin: 0; padding-right: 1.5rem;">
+                                    ${opts.map(opt => `<li>${escapeHtml(opt)}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    }
+                } catch (e) {}
+            }
+
+            showModal('פרטי שאלה', `
+                <div>
+                    <div class="form-group">
+                        <label class="form-label">טקסט השאלה</label>
+                        <div style="padding: 1rem; background: var(--gray-50); border-radius: 8px;">
+                            ${escapeHtml(question.question_text)}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">סוג</label>
+                        <div><span class="badge badge-info">${escapeHtml(question.type_name)}</span></div>
+                    </div>
+
+                    ${question.placeholder ? `
+                        <div class="form-group">
+                            <label class="form-label">Placeholder</label>
+                            <div>${escapeHtml(question.placeholder)}</div>
+                        </div>
+                    ` : ''}
+
+                    ${optionsHtml}
+
+                    <div class="form-group">
+                        <label class="form-label">נדרש</label>
+                        <div>${question.is_required ? '✅ כן' : '❌ לא'}</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">שימוש</label>
+                        <div>
+                            ${question.used_in_forms > 0
+                                ? `בשימוש ב-${question.used_in_forms} טפסים`
+                                : 'לא בשימוש כרגע'}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">תאריך יצירה</label>
+                        <div>${formatDate(question.created_at)}</div>
+                    </div>
+                </div>
+            `, [
+                {
+                    text: 'סגור',
+                    class: 'btn-secondary',
+                    onclick: 'closeModal()'
+                }
+            ]);
+        }
+
+        // Show create question modal
+        function showCreateQuestionModal() {
+            const typesOptions = questionTypes.map(type =>
+                `<option value="${type.id}">${escapeHtml(type.type_name)}</option>`
+            ).join('');
+
+            showModal('הוסף שאלה חדשה', `
+                <form id="create-question-form">
+                    <div class="form-group">
+                        <label class="form-label">טקסט השאלה *</label>
+                        <input type="text" id="new-question-text" class="form-input" required placeholder="למשל: מהו שמך המלא?">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">סוג השאלה *</label>
+                        <select id="new-question-type" class="form-select" required onchange="handleTypeChange()">
+                            <option value="">בחר סוג...</option>
+                            ${typesOptions}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Placeholder</label>
+                        <input type="text" id="new-placeholder" class="form-input" placeholder="טקסט עזר לשדה">
+                    </div>
+
+                    <div class="form-group" id="options-group" style="display: none;">
+                        <label class="form-label">אפשרויות (אחת בכל שורה)</label>
+                        <textarea id="new-options" class="form-textarea" placeholder="אפשרות 1
+אפשרות 2
+אפשרות 3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" id="new-required" checked>
+                            <span>שדה נדרש</span>
+                        </label>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <strong>💡 שים לב:</strong> השאלה תתוסף לספרייה ותהיה זמינה לשימוש בטפסים.
+                    </div>
+                </form>
+            `, [
+                {
+                    text: 'בטל',
+                    class: 'btn-secondary',
+                    onclick: 'closeModal()'
+                },
+                {
+                    text: 'הוסף שאלה',
+                    class: 'btn-primary',
+                    onclick: 'createQuestion()'
+                }
+            ]);
+        }
+
+        // Handle type change
+        function handleTypeChange() {
+            const typeId = document.getElementById('new-question-type').value;
+            const type = questionTypes.find(t => t.id == typeId);
+            const optionsGroup = document.getElementById('options-group');
+
+            // Show options field for radio, checkbox, select
+            if (type && (type.type_code === 'radio' || type.type_code === 'checkbox' || type.type_code === 'select')) {
+                optionsGroup.style.display = 'block';
+            } else {
+                optionsGroup.style.display = 'none';
+            }
+        }
+
+        // Create question (placeholder - API endpoint needed)
+        function createQuestion() {
+            showError('תכונת הוספת שאלות תהיה זמינה בקרוב. כרגע ניתן לצפות ולחפש בשאלות הקיימות.');
+            // TODO: Implement create_question API endpoint
+        }
+    </script>
+</body>
+</html>

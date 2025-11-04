@@ -1,0 +1,49 @@
+# Protect sensitive files from web access
+
+# Block access to database files
+<Files ~ "\.db$">
+    Require all denied
+</Files>
+
+# Block access to configuration files
+<Files "config.php">
+    Require all denied
+</Files>
+
+# Block access to test scripts
+<FilesMatch "^test_.*\.php$">
+    Require all denied
+</FilesMatch>
+
+# Block access to management scripts
+<Files "manage_users.php">
+    Require all denied
+</Files>
+
+<Files "db_init.php">
+    Require all denied
+</Files>
+
+# Block access to .htaccess itself
+<Files ".htaccess">
+    Require all denied
+</Files>
+
+# Disable directory browsing
+Options -Indexes
+
+# Set security headers for all responses
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Force HTTPS (if SSL is available)
+# Uncomment the following lines to force HTTPS
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{HTTPS} off
+#     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>

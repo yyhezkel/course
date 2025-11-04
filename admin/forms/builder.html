@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בונה טפסים - מערכת ניהול</title>
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="../admin.css">
+    <style>
+        .builder-container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 2rem;
+            height: calc(100vh - 200px);
+        }
+
+        .builder-sidebar {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            overflow-y: auto;
+        }
+
+        .builder-canvas {
+            background: var(--gray-50);
+            border-radius: 12px;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .form-preview {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            box-shadow: var(--shadow-md);
+        }
+
+        .section-block {
+            background: var(--gray-50);
+            border: 2px dashed var(--primary-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .question-item {
+            background: var(--white);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .question-item:hover {
+            box-shadow: var(--shadow-sm);
+            border-color: var(--primary-color);
+        }
+
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.5rem;
+        }
+
+        .question-controls {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .question-controls button {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            min-width: auto;
+        }
+
+        .question-text {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .question-type {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .add-item-button {
+            width: 100%;
+            border: 2px dashed var(--gray-300);
+            background: transparent;
+            color: var(--gray-600);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+
+        .add-item-button:hover {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            background: var(--gray-50);
+        }
+
+        .question-type-button {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            text-align: right;
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .question-type-button:hover {
+            background: var(--primary-color);
+            color: var(--white);
+            border-color: var(--primary-color);
+        }
+
+        .empty-form {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--gray-500);
+        }
+
+        .empty-form-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="admin-body">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">👨‍💼</div>
+            <h2>פאנל ניהול</h2>
+            <p class="admin-name" id="admin-name">טוען...</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="../dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>לוח בקרה</span>
+            </a>
+            <a href="../users/" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span>ניהול משתמשים</span>
+            </a>
+            <a href="../forms/" class="nav-item active">
+                <span class="nav-icon">📝</span>
+                <span>בניית טפסים</span>
+            </a>
+            <a href="../questions/" class="nav-item">
+                <span class="nav-icon">❓</span>
+                <span>ספריית שאלות</span>
+            </a>
+            <a href="../responses/" class="nav-item">
+                <span class="nav-icon">📋</span>
+                <span>צפייה בתשובות</span>
+            </a>
+            <a href="#" class="nav-item nav-item-danger" onclick="logout()">
+                <span class="nav-icon">🚪</span>
+                <span>התנתק</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p>גרסה 1.0</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <header class="admin-header">
+            <div>
+                <h1 id="form-title-display">בונה טפסים</h1>
+                <p id="form-description-display">צור ועצב את הטופס שלך</p>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn btn-secondary" onclick="window.location.href='./index.html'">
+                    <span>←</span>
+                    <span>חזור לרשימה</span>
+                </button>
+                <button class="btn btn-success" onclick="saveForm()">
+                    <span>💾</span>
+                    <span>שמור טופס</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Message container -->
+        <div id="message-container"></div>
+
+        <!-- Builder -->
+        <section class="section">
+            <div class="builder-container">
+                <!-- Sidebar -->
+                <div class="builder-sidebar">
+                    <h3 style="margin-bottom: 1rem;">כלי בנייה</h3>
+
+                    <div style="margin-bottom: 2rem;">
+                        <h4 style="font-size: 0.875rem; color: var(--gray-600); margin-bottom: 0.5rem;">הגדרות טופס</h4>
+                        <button class="btn btn-secondary" onclick="editFormDetails()" style="width: 100%; margin-bottom: 0.5rem;">
+                            ⚙️ ערוך פרטי טופס
+                        </button>
+                        <button class="btn btn-secondary" onclick="addSection()" style="width: 100%;">
+                            📑 הוסף קטגוריה
+                        </button>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size: 0.875rem; color: var(--gray-600); margin-bottom: 0.5rem;">סוגי שאלות</h4>
+                        <div id="question-types-list">
+                            <!-- Will be populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Canvas -->
+                <div class="builder-canvas">
+                    <div class="form-preview" id="form-canvas">
+                        <div class="empty-form">
+                            <div class="empty-form-icon">📝</div>
+                            <h3>התחל לבנות את הטופס</h3>
+                            <p>הוסף קטגוריות או שאלות כדי להתחיל</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="../admin.js"></script>
+    <script>
+        let currentFormId = null;
+        let questionTypes = [];
+        let formStructure = {
+            sections: [],
+            questions: []
+        };
+        let currentSection = null; // For adding questions to a section
+
+        // Get form ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const formIdParam = urlParams.get('form_id');
+
+        // Load on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadQuestionTypes();
+
+            if (formIdParam) {
+                await loadForm(formIdParam);
+            } else {
+                // Create new form
+                showFormDetailsModal(true);
+            }
+        });
+
+        // Load question types
+        async function loadQuestionTypes() {
+            try {
+                const data = await apiRequest('get_question_types');
+                if (data && data.success) {
+                    questionTypes = data.types;
+                    renderQuestionTypesButtons();
+                }
+            } catch (error) {
+                console.error('Error loading question types:', error);
+            }
+        }
+
+        // Render question type buttons
+        function renderQuestionTypesButtons() {
+            const container = document.getElementById('question-types-list');
+            container.innerHTML = questionTypes.map(type => `
+                <button class="question-type-button" onclick="addQuestion(${type.id}, '${escapeHtml(type.type_name)}')">
+                    ${escapeHtml(type.type_name)}
+                </button>
+            `).join('');
+        }
+
+        // Load existing form
+        async function loadForm(formId) {
+            try {
+                const data = await apiRequest('get_form', { form_id: formId });
+                if (!data || !data.success) {
+                    showError('שגיאה בטעינת טופס');
+                    return;
+                }
+
+                currentFormId = formId;
+                const form = data.form;
+                const questions = data.questions || [];
+
+                // Update header
+                document.getElementById('form-title-display').textContent = form.title;
+                document.getElementById('form-description-display').textContent = form.description || 'ערוך את הטופס שלך';
+
+                // Parse structure
+                parseFormStructure(questions);
+                renderFormCanvas();
+
+            } catch (error) {
+                console.error('Error loading form:', error);
+                showError('שגיאה בטעינת טופס');
+            }
+        }
+
+        // Parse form structure from questions
+        function parseFormStructure(questions) {
+            formStructure = { sections: [], questions: [] };
+
+            // Group by section
+            const sectionsMap = new Map();
+            const noSectionQuestions = [];
+
+            questions.forEach(q => {
+                if (q.section_title) {
+                    if (!sectionsMap.has(q.section_title)) {
+                        sectionsMap.set(q.section_title, {
+                            title: q.section_title,
+                            sequence: q.section_sequence || 0,
+                            questions: []
+                        });
+                    }
+                    sectionsMap.get(q.section_title).questions.push(q);
+                } else {
+                    noSectionQuestions.push(q);
+                }
+            });
+
+            // Convert to array and sort
+            formStructure.sections = Array.from(sectionsMap.values())
+                .sort((a, b) => a.sequence - b.sequence);
+
+            // Sort questions within sections
+            formStructure.sections.forEach(section => {
+                section.questions.sort((a, b) => a.sequence_order - b.sequence_order);
+            });
+
+            // Sort questions without section
+            formStructure.questions = noSectionQuestions.sort((a, b) => a.sequence_order - b.sequence_order);
+        }
+
+        // Render form canvas
+        function renderFormCanvas() {
+            const canvas = document.getElementById('form-canvas');
+
+            if (formStructure.sections.length === 0 && formStructure.questions.length === 0) {
+                canvas.innerHTML = `
+                    <div class="empty-form">
+                        <div class="empty-form-icon">📝</div>
+                        <h3>התחל לבנות את הטופס</h3>
+                        <p>הוסף קטגוריות או שאלות כדי להתחיל</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+
+            // Render sections
+            formStructure.sections.forEach((section, sectionIndex) => {
+                html += `
+                    <div class="section-block">
+                        <div class="section-header">
+                            <div class="section-title">${escapeHtml(section.title)}</div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                ${sectionIndex > 0 ? `<button class="btn btn-sm btn-secondary" onclick="moveSectionUp(${sectionIndex})">↑</button>` : ''}
+                                ${sectionIndex < formStructure.sections.length - 1 ? `<button class="btn btn-sm btn-secondary" onclick="moveSectionDown(${sectionIndex})">↓</button>` : ''}
+                                <button class="btn btn-sm btn-secondary" onclick="editSection(${sectionIndex})">✏️</button>
+                                <button class="btn btn-sm btn-danger" onclick="removeSection(${sectionIndex})">🗑️</button>
+                            </div>
+                        </div>
+
+                        ${section.questions.map((q, qIndex) => renderQuestionItem(q, qIndex, sectionIndex)).join('')}
+
+                        <button class="add-item-button" onclick="selectSectionForQuestion(${sectionIndex})">
+                            + הוסף שאלה לקטגוריה זו
+                        </button>
+                    </div>
+                `;
+            });
+
+            // Render questions without section
+            if (formStructure.questions.length > 0 || formStructure.sections.length === 0) {
+                html += `<div style="margin-top: 1.5rem;">`;
+                if (formStructure.questions.length > 0) {
+                    html += `<h3 style="margin-bottom: 1rem; color: var(--gray-700);">שאלות ללא קטגוריה</h3>`;
+                }
+                html += formStructure.questions.map((q, qIndex) => renderQuestionItem(q, qIndex, null)).join('');
+                html += `</div>`;
+            }
+
+            canvas.innerHTML = html;
+        }
+
+        // Render single question item
+        function renderQuestionItem(question, index, sectionIndex) {
+            const inSection = sectionIndex !== null;
+            const list = inSection ? formStructure.sections[sectionIndex].questions : formStructure.questions;
+
+            return `
+                <div class="question-item">
+                    <div class="question-header">
+                        <div style="flex: 1;">
+                            <div class="question-text">
+                                ${index + 1}. ${escapeHtml(question.question_text)}
+                                ${question.is_required ? '<span style="color: var(--danger-color);">*</span>' : ''}
+                            </div>
+                            <div class="question-type">
+                                ${escapeHtml(question.type_name)}
+                                ${question.placeholder ? ` • ${escapeHtml(question.placeholder)}` : ''}
+                            </div>
+                        </div>
+                        <div class="question-controls">
+                            ${index > 0 ? `<button class="btn btn-sm btn-secondary" onclick="moveQuestionUp(${index}, ${inSection}, ${sectionIndex})">↑</button>` : ''}
+                            ${index < list.length - 1 ? `<button class="btn btn-sm btn-secondary" onclick="moveQuestionDown(${index}, ${inSection}, ${sectionIndex})">↓</button>` : ''}
+                            <button class="btn btn-sm btn-secondary" onclick="editQuestion(${question.id})">✏️</button>
+                            <button class="btn btn-sm btn-danger" onclick="removeQuestion(${question.id})">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add section
+        function addSection() {
+            showModal('הוסף קטגוריה', `
+                <form id="section-form">
+                    <div class="form-group">
+                        <label class="form-label">שם הקטגוריה *</label>
+                        <input type="text" id="section-title" class="form-input" required placeholder="לדוגמה: פרטים אישיים">
+                    </div>
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' },
+                { text: 'הוסף', class: 'btn-primary', onclick: 'saveSectionTitle()' }
+            ]);
+        }
+
+        // Save section title
+        function saveSectionTitle() {
+            const title = document.getElementById('section-title').value.trim();
+            if (!title) {
+                showError('נא להזין שם קטגוריה');
+                return;
+            }
+
+            formStructure.sections.push({
+                title: title,
+                sequence: formStructure.sections.length,
+                questions: []
+            });
+
+            renderFormCanvas();
+            closeModal();
+            showSuccess('קטגוריה נוספה בהצלחה');
+        }
+
+        // Select section for adding question
+        function selectSectionForQuestion(sectionIndex) {
+            currentSection = sectionIndex;
+            // Show question types or directly add based on type selection
+            showMessage('בחר סוג שאלה מהסרגל הימני', 'info');
+        }
+
+        // Add question
+        function addQuestion(typeId, typeName) {
+            showModal('הוסף שאלה', `
+                <form id="question-form">
+                    <div class="form-group">
+                        <label class="form-label">סוג שאלה</label>
+                        <input type="text" class="form-input" value="${typeName}" disabled>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">טקסט השאלה *</label>
+                        <input type="text" id="question-text" class="form-input" required placeholder="לדוגמה: מהו שמך המלא?">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">טקסט עזר (Placeholder)</label>
+                        <input type="text" id="question-placeholder" class="form-input" placeholder="טקסט שיוצג בשדה הריק">
+                    </div>
+
+                    <div class="form-group" id="options-group" style="display: none;">
+                        <label class="form-label">אפשרויות (אחת בכל שורה)</label>
+                        <textarea id="question-options" class="form-textarea" placeholder="אפשרות 1&#10;אפשרות 2&#10;אפשרות 3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="question-required" checked>
+                            <span>שדה נדרש</span>
+                        </label>
+                    </div>
+
+                    ${currentSection !== null ?
+                        `<div class="alert alert-info">שאלה זו תתווסף לקטגוריה: ${escapeHtml(formStructure.sections[currentSection].title)}</div>` :
+                        `<div class="alert alert-info">שאלה זו תתווסף ללא קטגוריה</div>`
+                    }
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal(); currentSection = null;' },
+                { text: 'הוסף שאלה', class: 'btn-primary', onclick: `saveQuestion(${typeId})` }
+            ]);
+
+            // Show options field for certain types
+            const type = questionTypes.find(t => t.id === typeId);
+            if (type && (type.type_code === 'radio' || type.type_code === 'checkbox' || type.type_code === 'select')) {
+                document.getElementById('options-group').style.display = 'block';
+            }
+        }
+
+        // Save question
+        async function saveQuestion(typeId) {
+            if (!currentFormId) {
+                showError('נא ליצור טופס תחילה');
+                return;
+            }
+
+            const questionText = document.getElementById('question-text').value.trim();
+            const placeholder = document.getElementById('question-placeholder').value.trim();
+            const isRequired = document.getElementById('question-required').checked ? 1 : 0;
+
+            let options = null;
+            const optionsTextarea = document.getElementById('question-options');
+            if (optionsTextarea && optionsTextarea.style.display !== 'none') {
+                const optionsText = optionsTextarea.value.trim();
+                if (optionsText) {
+                    options = JSON.stringify(optionsText.split('\n').filter(o => o.trim()));
+                }
+            }
+
+            if (!questionText) {
+                showError('נא להזין טקסט שאלה');
+                return;
+            }
+
+            // Determine section info
+            let sectionTitle = null;
+            let sectionSequence = 0;
+            let sequence = 0;
+
+            if (currentSection !== null) {
+                const section = formStructure.sections[currentSection];
+                sectionTitle = section.title;
+                sectionSequence = section.sequence;
+                sequence = section.questions.length;
+            } else {
+                sequence = formStructure.questions.length;
+            }
+
+            try {
+                const result = await apiRequest('add_question_to_form', {
+                    form_id: currentFormId,
+                    question_text: questionText,
+                    question_type_id: typeId,
+                    section_title: sectionTitle,
+                    section_sequence: sectionSequence,
+                    sequence: sequence,
+                    is_required: isRequired,
+                    placeholder: placeholder || null,
+                    options: options
+                }, 'POST');
+
+                if (result.success) {
+                    showSuccess('שאלה נוספה בהצלחה');
+                    closeModal();
+                    currentSection = null;
+                    await loadForm(currentFormId); // Reload form
+                } else {
+                    showError(result.message || 'שגיאה בהוספת שאלה');
+                }
+            } catch (error) {
+                console.error('Error adding question:', error);
+                showError('שגיאה בהוספת שאלה');
+            }
+        }
+
+        // Move section up
+        function moveSectionUp(index) {
+            if (index > 0) {
+                [formStructure.sections[index], formStructure.sections[index - 1]] =
+                [formStructure.sections[index - 1], formStructure.sections[index]];
+                renderFormCanvas();
+            }
+        }
+
+        // Move section down
+        function moveSectionDown(index) {
+            if (index < formStructure.sections.length - 1) {
+                [formStructure.sections[index], formStructure.sections[index + 1]] =
+                [formStructure.sections[index + 1], formStructure.sections[index]];
+                renderFormCanvas();
+            }
+        }
+
+        // Move question up
+        function moveQuestionUp(index, inSection, sectionIndex) {
+            const list = inSection ? formStructure.sections[sectionIndex].questions : formStructure.questions;
+            if (index > 0) {
+                [list[index], list[index - 1]] = [list[index - 1], list[index]];
+                renderFormCanvas();
+            }
+        }
+
+        // Move question down
+        function moveQuestionDown(index, inSection, sectionIndex) {
+            const list = inSection ? formStructure.sections[sectionIndex].questions : formStructure.questions;
+            if (index < list.length - 1) {
+                [list[index], list[index + 1]] = [list[index + 1], list[index]];
+                renderFormCanvas();
+            }
+        }
+
+        // Remove question
+        async function removeQuestion(formQuestionId) {
+            if (!confirm('האם אתה בטוח שברצונך למחוק שאלה זו?')) {
+                return;
+            }
+
+            try {
+                const result = await apiRequest('remove_question_from_form', {
+                    form_question_id: formQuestionId
+                }, 'POST');
+
+                if (result.success) {
+                    showSuccess('שאלה הוסרה בהצלחה');
+                    await loadForm(currentFormId);
+                } else {
+                    showError(result.message || 'שגיאה בהסרת שאלה');
+                }
+            } catch (error) {
+                console.error('Error removing question:', error);
+                showError('שגיאה בהסרת שאלה');
+            }
+        }
+
+        // Remove section
+        function removeSection(index) {
+            if (!confirm('האם אתה בטוח? שאלות בקטגוריה זו יועברו לחלק ללא קטגוריה')) {
+                return;
+            }
+
+            // Move questions to no-section
+            const section = formStructure.sections[index];
+            formStructure.questions.push(...section.questions);
+            formStructure.sections.splice(index, 1);
+            renderFormCanvas();
+        }
+
+        // Edit form details
+        function editFormDetails() {
+            const form = {
+                title: document.getElementById('form-title-display').textContent,
+                description: document.getElementById('form-description-display').textContent
+            };
+
+            showFormDetailsModal(false, form);
+        }
+
+        // Show form details modal
+        function showFormDetailsModal(isNew = false, form = null) {
+            showModal(isNew ? 'צור טופס חדש' : 'ערוך פרטי טופס', `
+                <form id="form-details-form">
+                    <div class="form-group">
+                        <label class="form-label">כותרת הטופס *</label>
+                        <input type="text" id="form-title-input" class="form-input" required
+                               placeholder="לדוגמה: טופס קבלה לקורס" value="${form ? escapeHtml(form.title) : ''}">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">תיאור</label>
+                        <textarea id="form-description-input" class="form-textarea"
+                                  placeholder="תיאור קצר של הטופס...">${form ? escapeHtml(form.description) : ''}</textarea>
+                    </div>
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: isNew ? 'window.location.href="./index.html"' : 'closeModal()' },
+                { text: isNew ? 'צור טופס' : 'שמור', class: 'btn-primary', onclick: `saveFormDetails(${isNew})` }
+            ]);
+        }
+
+        // Save form details
+        async function saveFormDetails(isNew) {
+            const title = document.getElementById('form-title-input').value.trim();
+            const description = document.getElementById('form-description-input').value.trim();
+
+            if (!title) {
+                showError('נא להזין כותרת');
+                return;
+            }
+
+            if (isNew) {
+                try {
+                    const result = await apiRequest('create_form', {
+                        title: title,
+                        description: description
+                    }, 'POST');
+
+                    if (result.success) {
+                        currentFormId = result.form_id;
+                        document.getElementById('form-title-display').textContent = title;
+                        document.getElementById('form-description-display').textContent = description || 'ערוך את הטופס שלך';
+                        closeModal();
+                        showSuccess('טופס נוצר בהצלחה! כעת ניתן להוסיף שאלות');
+                        renderFormCanvas();
+                    } else {
+                        showError(result.message || 'שגיאה ביצירת טופס');
+                    }
+                } catch (error) {
+                    console.error('Error creating form:', error);
+                    showError('שגיאה ביצירת טופס');
+                }
+            } else {
+                // Update form details (would need an API endpoint)
+                document.getElementById('form-title-display').textContent = title;
+                document.getElementById('form-description-display').textContent = description || 'ערוך את הטופס שלך';
+                closeModal();
+                showSuccess('פרטי טופס עודכנו');
+            }
+        }
+
+        // Save form (update sequences)
+        async function saveForm() {
+            if (!currentFormId) {
+                showError('אין טופס לשמור');
+                return;
+            }
+
+            // Build structure array
+            const structure = [];
+
+            // Add sections and their questions
+            formStructure.sections.forEach((section, sIndex) => {
+                section.questions.forEach((q, qIndex) => {
+                    structure.push({
+                        id: q.id,
+                        section_title: section.title,
+                        section_sequence: sIndex,
+                        sequence: qIndex
+                    });
+                });
+            });
+
+            // Add questions without section
+            formStructure.questions.forEach((q, qIndex) => {
+                structure.push({
+                    id: q.id,
+                    section_title: null,
+                    section_sequence: 0,
+                    sequence: qIndex
+                });
+            });
+
+            try {
+                const result = await apiRequest('reorder_form_structure', {
+                    form_id: currentFormId,
+                    structure: structure
+                }, 'POST');
+
+                if (result.success) {
+                    showSuccess('טופס נשמר בהצלחה!');
+                } else {
+                    showError(result.message || 'שגיאה בשמירת טופס');
+                }
+            } catch (error) {
+                console.error('Error saving form:', error);
+                showError('שגיאה בשמירת טופס');
+            }
+        }
+
+        // Edit section (rename)
+        function editSection(index) {
+            const section = formStructure.sections[index];
+            showModal('ערוך קטגוריה', `
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">שם הקטגוריה *</label>
+                        <input type="text" id="edit-section-title" class="form-input" required value="${escapeHtml(section.title)}">
+                    </div>
+                </form>
+            `, [
+                { text: 'בטל', class: 'btn-secondary', onclick: 'closeModal()' },
+                { text: 'שמור', class: 'btn-primary', onclick: `updateSectionTitle(${index})` }
+            ]);
+        }
+
+        // Update section title
+        function updateSectionTitle(index) {
+            const newTitle = document.getElementById('edit-section-title').value.trim();
+            if (!newTitle) {
+                showError('נא להזין שם קטגוריה');
+                return;
+            }
+
+            formStructure.sections[index].title = newTitle;
+            renderFormCanvas();
+            closeModal();
+            showSuccess('קטגוריה עודכנה');
+        }
+
+        // Edit question
+        function editQuestion(questionId) {
+            showError('עריכת שאלה תהיה זמינה בקרוב. כרגע ניתן למחוק ולהוסיף מחדש.');
+            // TODO: Implement edit question
+        }
+    </script>
+</body>
+</html>
