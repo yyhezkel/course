@@ -152,6 +152,23 @@ try {
         )
     ");
 
+    // 8. Task Submissions Table - File uploads for task submissions
+    echo "Creating task_submissions table...\n";
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS task_submissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_task_id INTEGER NOT NULL,
+            filename TEXT NOT NULL,
+            original_filename TEXT NOT NULL,
+            filepath TEXT NOT NULL,
+            filesize INTEGER NOT NULL,
+            mime_type TEXT NOT NULL,
+            description TEXT,
+            uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_task_id) REFERENCES user_tasks(id) ON DELETE CASCADE
+        )
+    ");
+
     // Create indexes for better performance
     echo "Creating indexes...\n";
     $db->exec("CREATE INDEX IF NOT EXISTS idx_user_tasks_user ON user_tasks(user_id)");
@@ -162,6 +179,7 @@ try {
     $db->exec("CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read)");
     $db->exec("CREATE INDEX IF NOT EXISTS idx_task_comments_user_task ON task_comments(user_task_id)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_task_submissions_user_task ON task_submissions(user_task_id)");
 
     // Insert some sample course tasks
     echo "\nInserting sample course tasks...\n";
@@ -189,7 +207,11 @@ try {
     echo "- task_dependencies (prerequisites)\n";
     echo "- notifications (user notifications)\n";
     echo "- task_comments (communication)\n";
+    echo "- task_submissions (file uploads)\n";
     echo "\nSample tasks and materials have been added.\n";
+    echo "\nNOTE: Make sure to create uploads directory with write permissions:\n";
+    echo "mkdir -p uploads/users uploads/materials\n";
+    echo "chmod 755 uploads uploads/users uploads/materials\n";
 
 } catch (PDOException $e) {
     echo "Error: " . $e->getMessage() . "\n";

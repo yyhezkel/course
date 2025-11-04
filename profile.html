@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הפרופיל שלי</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .profile-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .back-link {
+            color: #667eea;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .profile-header h1 {
+            margin: 0 0 10px 0;
+        }
+
+        .profile-header p {
+            margin: 0;
+            opacity: 0.9;
+        }
+
+        .profile-section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .profile-section h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .profile-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .info-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            margin: 5px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .achievement-badge {
+            display: inline-block;
+            padding: 8px 15px;
+            background: #d4edda;
+            color: #155724;
+            border-radius: 20px;
+            font-size: 13px;
+            margin: 5px;
+        }
+
+        .achievement-badge.gold {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .achievement-badge.silver {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="profile-container">
+        <a href="dashboard.html" class="back-link">← חזרה ללוח המשימות</a>
+
+        <!-- Loading State -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>טוען פרטי משתמש...</p>
+        </div>
+
+        <!-- Profile Content -->
+        <div id="profileContent" style="display: none;">
+            <!-- Profile Header -->
+            <div class="profile-header">
+                <div class="profile-avatar" id="profileAvatar">??</div>
+                <h1 id="profileName">משתמש</h1>
+                <p id="profileId">מספר זיהוי: -</p>
+            </div>
+
+            <!-- Statistics Section -->
+            <div class="profile-section">
+                <h2>סטטיסטיקות הקורס</h2>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-number" id="totalTasks">0</div>
+                        <div class="stat-label">סך המשימות</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number" id="completedTasks">0</div>
+                        <div class="stat-label">משימות שהושלמו</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number" id="pendingTasks">0</div>
+                        <div class="stat-label">משימות ממתינות</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number" id="progressPercentage">0%</div>
+                        <div class="stat-label">אחוז השלמה</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number" id="totalPoints">0</div>
+                        <div class="stat-label">נקודות שנצברו</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Personal Information -->
+            <div class="profile-section">
+                <h2>מידע אישי</h2>
+                <div class="profile-info-grid">
+                    <div class="info-item">
+                        <div class="info-label">מספר זיהוי</div>
+                        <div class="info-value" id="userTz">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">סוג זיהוי</div>
+                        <div class="info-value" id="userIdType">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">כניסה אחרונה</div>
+                        <div class="info-value" id="lastLogin">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">סטטוס חשבון</div>
+                        <div class="info-value" id="accountStatus">פעיל</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Achievements (if user has completed tasks) -->
+            <div class="profile-section" id="achievementsSection" style="display: none;">
+                <h2>הישגים</h2>
+                <div id="achievementsList"></div>
+            </div>
+
+            <!-- Actions -->
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="dashboard.html" class="btn btn-primary">חזרה ללוח המשימות</a>
+                <button class="btn btn-secondary" onclick="logout()">יציאה מהמערכת</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userData = null;
+        let userTasks = [];
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const authenticated = await checkSession();
+            if (!authenticated) {
+                window.location.href = 'index.html';
+                return;
+            }
+            await loadProfile();
+        });
+
+        async function checkSession() {
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'check_session' })
+                });
+                const data = await response.json();
+                return data.authenticated;
+            } catch (error) {
+                console.error('Session check error:', error);
+                return false;
+            }
+        }
+
+        async function loadProfile() {
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'get_dashboard' })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load profile');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    userData = data.user;
+                    userTasks = data.tasks || [];
+                    renderProfile();
+                } else {
+                    throw new Error(data.message || 'Failed to load profile');
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                document.getElementById('loading').innerHTML = `
+                    <p style="color: red;">שגיאה בטעינת הפרטים</p>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+
+        function renderProfile() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('profileContent').style.display = 'block';
+
+            // Profile header
+            const initials = userData.tz ? userData.tz.substring(0, 2) : '??';
+            document.getElementById('profileAvatar').textContent = initials;
+            document.getElementById('profileName').textContent = userData.tz || 'משתמש';
+            document.getElementById('profileId').textContent = `מספר זיהוי: ${userData.tz}`;
+
+            // Statistics
+            const total = userTasks.length;
+            const completed = userTasks.filter(t => t.status === 'completed' || t.status === 'approved').length;
+            const pending = userTasks.filter(t => t.status === 'pending').length;
+            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+            const totalPoints = userTasks.filter(t => t.status === 'approved').reduce((sum, t) => sum + (parseInt(t.points) || 0), 0);
+
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('pendingTasks').textContent = pending;
+            document.getElementById('progressPercentage').textContent = percentage + '%';
+            document.getElementById('totalPoints').textContent = totalPoints;
+
+            // Personal info
+            document.getElementById('userTz').textContent = userData.tz || '-';
+            document.getElementById('userIdType').textContent = userData.id_type === 'tz' ? 'תעודת זהות (9 ספרות)' : 'מספר אישי (7 ספרות)';
+
+            if (userData.last_login) {
+                const lastLogin = new Date(userData.last_login).toLocaleString('he-IL');
+                document.getElementById('lastLogin').textContent = lastLogin;
+            }
+
+            // Achievements
+            if (completed > 0) {
+                document.getElementById('achievementsSection').style.display = 'block';
+                renderAchievements(completed, total, totalPoints);
+            }
+        }
+
+        function renderAchievements(completed, total, totalPoints) {
+            const achievementsList = document.getElementById('achievementsList');
+            const achievements = [];
+
+            if (completed >= 1) {
+                achievements.push({ text: '🎯 משימה ראשונה', class: '' });
+            }
+            if (completed >= 5) {
+                achievements.push({ text: '⭐ 5 משימות הושלמו', class: 'silver' });
+            }
+            if (completed >= 10) {
+                achievements.push({ text: '🏆 10 משימות הושלמו', class: 'gold' });
+            }
+            if (total > 0 && completed === total) {
+                achievements.push({ text: '🎉 סיום כל המשימות', class: 'gold' });
+            }
+            if (totalPoints >= 50) {
+                achievements.push({ text: '💎 50 נקודות', class: 'silver' });
+            }
+            if (totalPoints >= 100) {
+                achievements.push({ text: '👑 100 נקודות', class: 'gold' });
+            }
+
+            achievementsList.innerHTML = achievements.map(a =>
+                `<span class="achievement-badge ${a.class}">${a.text}</span>`
+            ).join('');
+        }
+
+        async function logout() {
+            try {
+                await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'logout' })
+                });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
