@@ -686,6 +686,242 @@ if ($action === 'auto_save') {
     }
 }
 
+// === 6. קבלת לוח המשימות של המשתמש (GET_DASHBOARD) ===
+if ($action === 'get_dashboard') {
+    // בדיקת אימות
+    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'נדרש אימות.']);
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+
+    try {
+        // שליפת פרטי המשתמש
+        $stmt = $db->prepare("SELECT tz, id_type FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // שליפת כל המשימות של המשתמש
+        $stmt = $db->prepare("
+            SELECT
+                ut.id,
+                ut.task_id,
+                ut.status,
+                ut.due_date,
+                ut.priority,
+                ct.title,
+                ct.description,
+                ct.task_type,
+                ct.estimated_duration,
+                ct.points,
+                ct.sequence_order,
+                ct.form_id
+            FROM user_tasks ut
+            JOIN course_tasks ct ON ut.task_id = ct.id
+            WHERE ut.user_id = ? AND ct.is_active = 1
+            ORDER BY ct.sequence_order ASC
+        ");
+        $stmt->execute([$userId]);
+        $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'user' => $user,
+            'tasks' => $tasks
+        ]);
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת הנתונים: ' . $e->getMessage()]);
+        exit;
+    }
+}
+
+// === 7. קבלת פרטי משימה ספציפית (GET_TASK_DETAIL) ===
+if ($action === 'get_task_detail') {
+    // בדיקת אימות
+    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'נדרש אימות.']);
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+    $userTaskId = $input['user_task_id'] ?? '';
+
+    if (empty($userTaskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה.']);
+        exit;
+    }
+
+    try {
+        // שליפת פרטי המשימה
+        $stmt = $db->prepare("
+            SELECT
+                ut.id,
+                ut.task_id,
+                ut.status,
+                ut.due_date,
+                ut.priority,
+                ut.admin_notes,
+                ct.title,
+                ct.description,
+                ct.instructions,
+                ct.task_type,
+                ct.estimated_duration,
+                ct.points,
+                ct.form_id,
+                tp.review_notes
+            FROM user_tasks ut
+            JOIN course_tasks ct ON ut.task_id = ct.id
+            LEFT JOIN task_progress tp ON ut.id = tp.user_task_id
+            WHERE ut.id = ? AND ut.user_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$userTaskId, $userId]);
+        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$task) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'המשימה לא נמצאה.']);
+            exit;
+        }
+
+        // שליפת חומרי לימוד
+        $stmt = $db->prepare("
+            SELECT
+                id,
+                title,
+                description,
+                material_type,
+                file_path,
+                external_url,
+                content_text,
+                is_required
+            FROM course_materials
+            WHERE task_id = ?
+            ORDER BY display_order ASC
+        ");
+        $stmt->execute([$task['task_id']]);
+        $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $task['materials'] = $materials;
+
+        echo json_encode([
+            'success' => true,
+            'task' => $task
+        ]);
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת המשימה: ' . $e->getMessage()]);
+        exit;
+    }
+}
+
+// === 8. עדכון סטטוס משימה (UPDATE_TASK_STATUS) ===
+if ($action === 'update_task_status') {
+    // בדיקת אימות
+    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'נדרש אימות.']);
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+    $userTaskId = $input['user_task_id'] ?? '';
+    $newStatus = $input['status'] ?? '';
+
+    if (empty($userTaskId) || empty($newStatus)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסרים פרמטרים.']);
+        exit;
+    }
+
+    // בדיקת סטטוס תקין
+    $validStatuses = ['pending', 'in_progress', 'completed', 'needs_review', 'approved', 'rejected'];
+    if (!in_array($newStatus, $validStatuses)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'סטטוס לא תקין.']);
+        exit;
+    }
+
+    try {
+        // וידוא שהמשימה שייכת למשתמש
+        $stmt = $db->prepare("SELECT id FROM user_tasks WHERE id = ? AND user_id = ?");
+        $stmt->execute([$userTaskId, $userId]);
+        if (!$stmt->fetch()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'אין הרשאה לעדכן משימה זו.']);
+            exit;
+        }
+
+        // עדכון הסטטוס
+        $stmt = $db->prepare("UPDATE user_tasks SET status = ? WHERE id = ?");
+        $stmt->execute([$newStatus, $userTaskId]);
+
+        // עדכון/הוספת רשומה ב-task_progress
+        $progressData = [
+            'user_task_id' => $userTaskId,
+            'status' => $newStatus,
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+
+        // הוספת started_at אם התחלנו
+        if ($newStatus === 'in_progress') {
+            $stmt = $db->prepare("
+                INSERT INTO task_progress (user_task_id, status, started_at, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_task_id)
+                DO UPDATE SET status = excluded.status, started_at = COALESCE(task_progress.started_at, CURRENT_TIMESTAMP), updated_at = excluded.updated_at
+            ");
+            $stmt->execute([$userTaskId, $newStatus]);
+        }
+        // הוספת completed_at אם סיימנו
+        elseif ($newStatus === 'needs_review' || $newStatus === 'completed') {
+            $stmt = $db->prepare("
+                INSERT INTO task_progress (user_task_id, status, completed_at, updated_at, progress_percentage)
+                VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 100)
+                ON CONFLICT(user_task_id)
+                DO UPDATE SET status = excluded.status, completed_at = CURRENT_TIMESTAMP, updated_at = excluded.updated_at, progress_percentage = 100
+            ");
+            $stmt->execute([$userTaskId, $newStatus]);
+        }
+        else {
+            $stmt = $db->prepare("
+                INSERT INTO task_progress (user_task_id, status, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_task_id)
+                DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at
+            ");
+            $stmt->execute([$userTaskId, $newStatus]);
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'הסטטוס עודכן בהצלחה.'
+        ]);
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון הסטטוס: ' . $e->getMessage()]);
+        exit;
+    }
+}
+
+// === 9. יציאה מהמערכת (LOGOUT) ===
+if ($action === 'logout') {
+    session_destroy();
+    echo json_encode(['success' => true, 'message' => 'יצאת מהמערכת בהצלחה.']);
+    exit;
+}
+
 // אם לא נמצאה פעולה מתאימה
 http_response_code(404);
 echo json_encode(['success' => false, 'message' => 'Endpoint לא נמצא.']);

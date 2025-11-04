@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>פרטי תלמיד</title>
+    <link rel="stylesheet" href="../admin.css">
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .back-link {
+            color: #667eea;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .user-header-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .user-header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-avatar-large {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            margin-left: 20px;
+        }
+
+        .user-header-info h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+
+        .user-header-meta {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-white {
+            background: white;
+            color: #667eea;
+        }
+
+        .btn-white:hover {
+            background: #f0f0f0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .progress-overview {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .progress-overview h2 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .progress-bar-large {
+            width: 100%;
+            height: 40px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar-fill-large {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .tasks-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .tasks-section h2 {
+            margin-top: 0;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .task-item {
+            border-right: 4px solid #667eea;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .task-item.completed {
+            border-right-color: #4caf50;
+            opacity: 0.8;
+        }
+
+        .task-item.needs-review {
+            border-right-color: #ff9800;
+        }
+
+        .task-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .task-item-title {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .task-status-badge {
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .task-status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .task-status-badge.in-progress {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .task-status-badge.completed,
+        .task-status-badge.approved {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .task-status-badge.needs-review {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .task-status-badge.rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .task-item-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .task-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .task-action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s;
+        }
+
+        .task-action-btn.approve {
+            background: #28a745;
+            color: white;
+        }
+
+        .task-action-btn.approve:hover {
+            background: #218838;
+        }
+
+        .task-action-btn.reject {
+            background: #dc3545;
+            color: white;
+        }
+
+        .task-action-btn.reject:hover {
+            background: #c82333;
+        }
+
+        .task-action-btn.view {
+            background: #6c757d;
+            color: white;
+        }
+
+        .task-action-btn.view:hover {
+            background: #5a6268;
+        }
+
+        .review-section {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .review-section.active {
+            display: block;
+        }
+
+        .review-section textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .review-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .no-tasks {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <a href="index.html" class="back-link">← חזרה לרשימת התלמידים</a>
+
+        <!-- Loading State -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>טוען נתונים...</p>
+        </div>
+
+        <!-- User Detail Content -->
+        <div id="userContent" style="display: none;">
+            <!-- User Header -->
+            <div class="user-header-card">
+                <div class="user-header-content">
+                    <div style="display: flex; align-items: center; flex: 1;">
+                        <div class="user-avatar-large" id="userAvatar">??</div>
+                        <div class="user-header-info">
+                            <h1 id="userName">תלמיד</h1>
+                            <div class="user-header-meta">
+                                <span id="userTz">ת.ז.: -</span>
+                                <span id="userLastLogin">כניסה אחרונה: -</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-white" onclick="assignNewTask()">הוספת משימה חדשה</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalTasks">0</div>
+                    <div class="stat-label">סך המשימות</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="completedTasks">0</div>
+                    <div class="stat-label">הושלמו</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="pendingTasks">0</div>
+                    <div class="stat-label">ממתינות</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="reviewTasks">0</div>
+                    <div class="stat-label">לבדיקה</div>
+                </div>
+            </div>
+
+            <!-- Progress Overview -->
+            <div class="progress-overview">
+                <h2>התקדמות כללית</h2>
+                <div class="progress-bar-large">
+                    <div class="progress-bar-fill-large" id="progressBar" style="width: 0%">0%</div>
+                </div>
+            </div>
+
+            <!-- Tasks Section -->
+            <div class="tasks-section">
+                <h2>
+                    <span>משימות התלמיד</span>
+                    <button class="btn btn-white" onclick="assignNewTask()">+ הוספת משימה</button>
+                </h2>
+                <div id="tasksList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let userId = null;
+        let userData = null;
+        let userTasks = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            userId = urlParams.get('id');
+
+            if (!userId) {
+                alert('חסר מזהה משתמש');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            loadUserData();
+        });
+
+        async function loadUserData() {
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'get_user_detail',
+                        user_id: userId
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load user data');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    userData = data.user;
+                    userTasks = data.tasks;
+                    renderUserDetail();
+                } else {
+                    throw new Error(data.message || 'Failed to load user data');
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                document.getElementById('loading').innerHTML = `
+                    <p style="color: red;">שגיאה בטעינת הנתונים</p>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+
+        function renderUserDetail() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('userContent').style.display = 'block';
+
+            // User header
+            const initials = userData.tz ? userData.tz.substring(0, 2) : '??';
+            document.getElementById('userAvatar').textContent = initials;
+            document.getElementById('userName').textContent = userData.tz || 'תלמיד';
+            document.getElementById('userTz').textContent = `ת.ז.: ${userData.tz}`;
+            if (userData.last_login) {
+                const lastLogin = new Date(userData.last_login).toLocaleDateString('he-IL');
+                document.getElementById('userLastLogin').textContent = `כניסה אחרונה: ${lastLogin}`;
+            }
+
+            // Stats
+            const total = userTasks.length;
+            const completed = userTasks.filter(t => t.status === 'completed' || t.status === 'approved').length;
+            const pending = userTasks.filter(t => t.status === 'pending').length;
+            const review = userTasks.filter(t => t.status === 'needs_review').length;
+            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('pendingTasks').textContent = pending;
+            document.getElementById('reviewTasks').textContent = review;
+
+            // Progress bar
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = percentage + '%';
+
+            // Render tasks
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const tasksList = document.getElementById('tasksList');
+
+            if (userTasks.length === 0) {
+                tasksList.innerHTML = `
+                    <div class="no-tasks">
+                        <p>אין משימות שהוקצו לתלמיד זה</p>
+                        <button class="btn btn-primary" onclick="assignNewTask()">הוספת משימה ראשונה</button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort: needs_review first, then by sequence
+            const sortedTasks = [...userTasks].sort((a, b) => {
+                if (a.status === 'needs_review' && b.status !== 'needs_review') return -1;
+                if (a.status !== 'needs_review' && b.status === 'needs_review') return 1;
+                return (a.sequence_order || 0) - (b.sequence_order || 0);
+            });
+
+            tasksList.innerHTML = sortedTasks.map(task => {
+                const statusText = getStatusText(task.status);
+                const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString('he-IL') : null;
+                const needsReview = task.status === 'needs_review';
+
+                return `
+                    <div class="task-item ${task.status.replace('_', '-')}">
+                        <div class="task-item-header">
+                            <span class="task-item-title">${task.title}</span>
+                            <span class="task-status-badge ${task.status.replace('_', '-')}">${statusText}</span>
+                        </div>
+                        ${task.description ? `<p style="font-size: 13px; color: #666; margin: 10px 0;">${task.description}</p>` : ''}
+                        <div class="task-item-meta">
+                            ${task.estimated_duration ? `<span>⏱️ ${task.estimated_duration} דקות</span>` : ''}
+                            ${task.points ? `<span>⭐ ${task.points} נקודות</span>` : ''}
+                            ${dueDate ? `<span>📅 ${dueDate}</span>` : ''}
+                        </div>
+                        <div class="task-actions">
+                            ${needsReview ? `
+                                <button class="task-action-btn approve" onclick="reviewTask(${task.id}, 'approved')">✓ אישור</button>
+                                <button class="task-action-btn reject" onclick="toggleReviewSection(${task.id})">✗ דחייה</button>
+                            ` : ''}
+                            <button class="task-action-btn view" onclick="viewTaskResponses(${task.id})">צפייה בתשובות</button>
+                        </div>
+                        <div class="review-section" id="review-${task.id}">
+                            <textarea id="review-notes-${task.id}" placeholder="הערות לתלמיד..." rows="3"></textarea>
+                            <div class="review-actions">
+                                <button class="task-action-btn reject" onclick="reviewTask(${task.id}, 'rejected')">שלח דחייה</button>
+                                <button class="task-action-btn view" onclick="toggleReviewSection(${task.id})">ביטול</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleReviewSection(taskId) {
+            const section = document.getElementById(`review-${taskId}`);
+            section.classList.toggle('active');
+        }
+
+        async function reviewTask(userTaskId, newStatus) {
+            let reviewNotes = '';
+            if (newStatus === 'rejected') {
+                reviewNotes = document.getElementById(`review-notes-${userTaskId}`).value;
+                if (!reviewNotes.trim()) {
+                    alert('אנא הוסף הערות לדחייה');
+                    return;
+                }
+            }
+
+            if (!confirm(`האם אתה בטוח שברצונך ${newStatus === 'approved' ? 'לאשר' : 'לדחות'} את המשימה?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'review_task',
+                        user_task_id: userTaskId,
+                        status: newStatus,
+                        review_notes: reviewNotes
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('הסטטוס עודכן בהצלחה');
+                    await loadUserData(); // Reload data
+                } else {
+                    alert('שגיאה: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error reviewing task:', error);
+                alert('שגיאה בעדכון הסטטוס');
+            }
+        }
+
+        function viewTaskResponses(userTaskId) {
+            // Find the task to get form_id if exists
+            const task = userTasks.find(t => t.id === userTaskId);
+            if (task && task.form_id) {
+                window.open(`../responses/index.html?user_id=${userId}&form_id=${task.form_id}`, '_blank');
+            } else {
+                alert('אין טופס מקושר למשימה זו');
+            }
+        }
+
+        function assignNewTask() {
+            window.location.href = `assign-task.html?user_id=${userId}`;
+        }
+
+        function getStatusText(status) {
+            const statusMap = {
+                'pending': 'ממתינה',
+                'in_progress': 'בתהליך',
+                'completed': 'הושלמה',
+                'needs_review': 'לבדיקה',
+                'approved': 'אושרה',
+                'rejected': 'נדחתה'
+            };
+            return statusMap[status] || status;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>פרטי משימה</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .task-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #f0f0f0;
+            color: #333;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+
+        .back-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .task-header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .task-header h1 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .task-status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .task-status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .task-status-badge.in-progress {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .task-status-badge.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .task-status-badge.needs-review {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .task-meta-info {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .task-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .task-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .task-content h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 20px;
+        }
+
+        .task-description {
+            line-height: 1.6;
+            color: #555;
+            margin-bottom: 20px;
+        }
+
+        .task-instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-right: 4px solid #667eea;
+            margin-top: 20px;
+        }
+
+        .task-instructions h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+
+        .materials-section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .materials-section h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 20px;
+        }
+
+        .material-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .material-icon {
+            font-size: 24px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .material-info {
+            flex: 1;
+        }
+
+        .material-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .material-description {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .material-link {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .material-link:hover {
+            text-decoration: underline;
+        }
+
+        .material-content {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
+
+        .action-section {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .action-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background 0.3s;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .action-btn:hover {
+            background: #5568d3;
+        }
+
+        .action-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .action-btn.secondary {
+            background: #6c757d;
+        }
+
+        .action-btn.secondary:hover {
+            background: #5a6268;
+        }
+
+        .action-btn.success {
+            background: #28a745;
+        }
+
+        .action-btn.success:hover {
+            background: #218838;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .no-materials {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        .file-upload-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .file-upload-section h3 {
+            margin-top: 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .file-input-wrapper {
+            margin: 15px 0;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed #667eea;
+            border-radius: 5px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .file-input-wrapper input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .uploaded-files {
+            margin-top: 20px;
+        }
+
+        .file-item {
+            background: white;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-item-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-icon {
+            font-size: 24px;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .file-size {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .file-download-btn {
+            padding: 6px 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .file-download-btn:hover {
+            background: #5568d3;
+        }
+
+        .upload-progress {
+            margin-top: 10px;
+            display: none;
+        }
+
+        .progress-bar-small {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill-small {
+            height: 100%;
+            background: #667eea;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .task-meta-info {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="task-container">
+        <!-- Loading State -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>טוען משימה...</p>
+        </div>
+
+        <!-- Task Content (hidden initially) -->
+        <div id="taskContent" style="display: none;">
+            <a href="dashboard.html" class="back-btn">
+                ← חזרה ללוח המשימות
+            </a>
+
+            <!-- Task Header -->
+            <div class="task-header">
+                <span class="task-status-badge" id="taskStatus">ממתינה</span>
+                <h1 id="taskTitle">משימה</h1>
+                <p id="taskDescription" class="task-description"></p>
+
+                <div class="task-meta-info">
+                    <div class="task-meta-item" id="durationMeta" style="display: none;">
+                        <span>⏱️</span>
+                        <span id="taskDuration"></span>
+                    </div>
+                    <div class="task-meta-item" id="pointsMeta" style="display: none;">
+                        <span>⭐</span>
+                        <span id="taskPoints"></span>
+                    </div>
+                    <div class="task-meta-item" id="dueDateMeta" style="display: none;">
+                        <span>📅</span>
+                        <span id="taskDueDate"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task Instructions -->
+            <div class="task-content" id="instructionsSection" style="display: none;">
+                <div class="task-instructions">
+                    <h3>הוראות</h3>
+                    <div id="taskInstructions"></div>
+                </div>
+            </div>
+
+            <!-- Course Materials -->
+            <div class="materials-section" id="materialsSection" style="display: none;">
+                <h2>חומרי לימוד</h2>
+                <div id="materialsList"></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-section">
+                <h2>פעולות</h2>
+                <div id="actionButtons"></div>
+
+                <!-- File Upload Section -->
+                <div class="file-upload-section" id="fileUploadSection" style="display: none;">
+                    <h3>העלאת קבצים</h3>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt,.zip">
+                        <input type="text" id="fileDescription" placeholder="תיאור הקובץ (אופציונלי)">
+                        <button class="action-btn" onclick="uploadFile()" style="margin-top: 10px;">העלה קובץ</button>
+                    </div>
+                    <div class="upload-progress" id="uploadProgress">
+                        <div class="progress-bar-small">
+                            <div class="progress-bar-fill-small" id="uploadProgressBar" style="width: 0%">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Uploaded Files List -->
+                <div class="uploaded-files" id="uploadedFiles" style="display: none;">
+                    <h3>קבצים שהועלו</h3>
+                    <div id="filesList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let taskData = null;
+        let userTaskId = null;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Get task ID from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            userTaskId = urlParams.get('id');
+
+            if (!userTaskId) {
+                alert('מזהה משימה חסר');
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            const authenticated = await checkSession();
+            if (!authenticated) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            await loadTask();
+        });
+
+        async function checkSession() {
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'check_session' })
+                });
+                const data = await response.json();
+                return data.authenticated;
+            } catch (error) {
+                console.error('Session check error:', error);
+                return false;
+            }
+        }
+
+        async function loadTask() {
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'get_task_detail',
+                        user_task_id: userTaskId
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load task');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    taskData = data.task;
+                    renderTask();
+                } else {
+                    throw new Error(data.message || 'Failed to load task');
+                }
+            } catch (error) {
+                console.error('Error loading task:', error);
+                document.getElementById('loading').innerHTML = `
+                    <p style="color: red;">שגיאה בטעינת המשימה</p>
+                    <p>${error.message}</p>
+                    <button onclick="window.location.href='dashboard.html'" style="padding: 10px 20px;">חזרה ללוח המשימות</button>
+                `;
+            }
+        }
+
+        function renderTask() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('taskContent').style.display = 'block';
+
+            // Set task header
+            document.getElementById('taskTitle').textContent = taskData.title;
+            document.getElementById('taskDescription').textContent = taskData.description || '';
+
+            const statusBadge = document.getElementById('taskStatus');
+            statusBadge.textContent = getStatusText(taskData.status);
+            statusBadge.className = 'task-status-badge ' + taskData.status.replace('_', '-');
+
+            // Set meta info
+            if (taskData.estimated_duration) {
+                document.getElementById('durationMeta').style.display = 'flex';
+                document.getElementById('taskDuration').textContent = `${taskData.estimated_duration} דקות`;
+            }
+
+            if (taskData.points) {
+                document.getElementById('pointsMeta').style.display = 'flex';
+                document.getElementById('taskPoints').textContent = `${taskData.points} נקודות`;
+            }
+
+            if (taskData.due_date) {
+                document.getElementById('dueDateMeta').style.display = 'flex';
+                const dueDate = new Date(taskData.due_date).toLocaleDateString('he-IL');
+                document.getElementById('taskDueDate').textContent = `תאריך יעד: ${dueDate}`;
+            }
+
+            // Set instructions
+            if (taskData.instructions) {
+                document.getElementById('instructionsSection').style.display = 'block';
+                document.getElementById('taskInstructions').innerHTML = taskData.instructions.replace(/\n/g, '<br>');
+            }
+
+            // Render materials
+            renderMaterials();
+
+            // Render action buttons
+            renderActions();
+        }
+
+        function renderMaterials() {
+            const materials = taskData.materials || [];
+
+            if (materials.length === 0) {
+                return; // Keep section hidden if no materials
+            }
+
+            document.getElementById('materialsSection').style.display = 'block';
+            const materialsList = document.getElementById('materialsList');
+
+            materialsList.innerHTML = materials.map(material => {
+                const icon = getMaterialIcon(material.material_type);
+
+                let content = '';
+                if (material.external_url) {
+                    content = `<a href="${material.external_url}" target="_blank" class="material-link">פתח קישור ←</a>`;
+                } else if (material.file_path) {
+                    content = `<a href="${material.file_path}" target="_blank" class="material-link">הורד קובץ ←</a>`;
+                } else if (material.content_text) {
+                    content = `<div class="material-content">${material.content_text}</div>`;
+                }
+
+                return `
+                    <div class="material-item">
+                        <div class="material-icon">${icon}</div>
+                        <div class="material-info">
+                            <div class="material-title">${material.title}</div>
+                            ${material.description ? `<div class="material-description">${material.description}</div>` : ''}
+                            ${content}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderActions() {
+            const actionButtons = document.getElementById('actionButtons');
+            let buttons = '';
+
+            switch (taskData.status) {
+                case 'pending':
+                    buttons = `
+                        <button class="action-btn" onclick="startTask()">התחל משימה</button>
+                    `;
+                    break;
+
+                case 'in_progress':
+                    if (taskData.form_id) {
+                        buttons = `
+                            <button class="action-btn" onclick="goToForm()">המשך למילוי טופס</button>
+                            <button class="action-btn secondary" onclick="markComplete()">סימון כהושלם</button>
+                        `;
+                    } else {
+                        buttons = `
+                            <button class="action-btn success" onclick="markComplete()">סימון כהושלם</button>
+                        `;
+                    }
+                    break;
+
+                case 'completed':
+                case 'needs_review':
+                    buttons = `
+                        <button class="action-btn" disabled>המשימה הוגשה ומחכה לבדיקה</button>
+                    `;
+                    break;
+
+                case 'approved':
+                    buttons = `
+                        <button class="action-btn success" disabled>✓ המשימה אושרה</button>
+                    `;
+                    break;
+
+                case 'rejected':
+                    buttons = `
+                        <button class="action-btn" onclick="startTask()">תקן ושלח מחדש</button>
+                        ${taskData.review_notes ? `<div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 5px;"><strong>הערות המנחה:</strong><br>${taskData.review_notes}</div>` : ''}
+                    `;
+                    break;
+            }
+
+            actionButtons.innerHTML = buttons;
+
+            // Show/hide file upload section based on status
+            const fileUploadSection = document.getElementById('fileUploadSection');
+            if (taskData.status === 'in_progress' || taskData.status === 'rejected') {
+                fileUploadSection.style.display = 'block';
+                loadUploadedFiles(); // Load any existing files
+            } else {
+                fileUploadSection.style.display = 'none';
+            }
+
+            // Always try to load uploaded files to show them
+            loadUploadedFiles();
+        }
+
+        async function startTask() {
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'update_task_status',
+                        user_task_id: userTaskId,
+                        status: 'in_progress'
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    taskData.status = 'in_progress';
+                    renderTask();
+                } else {
+                    alert('שגיאה בעדכון סטטוס המשימה');
+                }
+            } catch (error) {
+                console.error('Error starting task:', error);
+                alert('שגיאה בעדכון סטטוס המשימה');
+            }
+        }
+
+        async function markComplete() {
+            if (!confirm('האם אתה בטוח שברצונך לסמן את המשימה כהושלמה?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'update_task_status',
+                        user_task_id: userTaskId,
+                        status: 'needs_review'
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('המשימה הוגשה בהצלחה!');
+                    window.location.href = 'dashboard.html';
+                } else {
+                    alert('שגיאה בהגשת המשימה');
+                }
+            } catch (error) {
+                console.error('Error completing task:', error);
+                alert('שגיאה בהגשת המשימה');
+            }
+        }
+
+        function goToForm() {
+            // Redirect to form page with task context
+            window.location.href = `index.html?task=${userTaskId}`;
+        }
+
+        function getStatusText(status) {
+            const statusMap = {
+                'pending': 'ממתינה',
+                'in_progress': 'בתהליך',
+                'completed': 'הושלמה',
+                'needs_review': 'ממתינה לבדיקה',
+                'approved': 'אושרה',
+                'rejected': 'נדחתה'
+            };
+            return statusMap[status] || status;
+        }
+
+        function getMaterialIcon(type) {
+            const iconMap = {
+                'text': '📄',
+                'pdf': '📕',
+                'video': '🎥',
+                'link': '🔗',
+                'document': '📋'
+            };
+            return iconMap[type] || '📎';
+        }
+
+        // File Upload Functions
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const description = document.getElementById('fileDescription').value;
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('אנא בחר קובץ להעלאה');
+                return;
+            }
+
+            const file = fileInput.files[0];
+
+            // Validate file size (10MB max)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('הקובץ גדול מדי. מקסימום 10MB');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('user_task_id', userTaskId);
+            formData.append('description', description);
+
+            try {
+                // Show progress bar
+                const progressDiv = document.getElementById('uploadProgress');
+                const progressBar = document.getElementById('uploadProgressBar');
+                progressDiv.style.display = 'block';
+
+                const xhr = new XMLHttpRequest();
+
+                // Track upload progress
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percentComplete = Math.round((e.loaded / e.total) * 100);
+                        progressBar.style.width = percentComplete + '%';
+                        progressBar.textContent = percentComplete + '%';
+                    }
+                });
+
+                // Handle completion
+                xhr.addEventListener('load', async () => {
+                    progressDiv.style.display = 'none';
+                    progressBar.style.width = '0%';
+                    progressBar.textContent = '0%';
+
+                    if (xhr.status === 200) {
+                        const data = JSON.parse(xhr.responseText);
+                        if (data.success) {
+                            alert('הקובץ הועלה בהצלחה!');
+                            fileInput.value = '';
+                            document.getElementById('fileDescription').value = '';
+                            await loadUploadedFiles();
+                            // Reload task to get updated status
+                            await loadTask();
+                        } else {
+                            alert('שגיאה: ' + data.message);
+                        }
+                    } else {
+                        alert('שגיאה בהעלאת הקובץ');
+                    }
+                });
+
+                // Handle errors
+                xhr.addEventListener('error', () => {
+                    progressDiv.style.display = 'none';
+                    alert('שגיאה בהעלאת הקובץ');
+                });
+
+                xhr.open('POST', 'upload.php');
+                xhr.withCredentials = true;
+                xhr.send(formData);
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('שגיאה בהעלאת הקובץ');
+            }
+        }
+
+        async function loadUploadedFiles() {
+            try {
+                const response = await fetch(`upload.php?user_task_id=${userTaskId}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.submissions.length > 0) {
+                    document.getElementById('uploadedFiles').style.display = 'block';
+                    renderUploadedFiles(data.submissions);
+                } else {
+                    document.getElementById('uploadedFiles').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error loading files:', error);
+            }
+        }
+
+        function renderUploadedFiles(submissions) {
+            const filesList = document.getElementById('filesList');
+
+            filesList.innerHTML = submissions.map(file => {
+                const sizeKB = Math.round(file.filesize / 1024);
+                const uploadDate = new Date(file.uploaded_at).toLocaleDateString('he-IL');
+                const icon = getFileIcon(file.mime_type);
+
+                return `
+                    <div class="file-item">
+                        <div class="file-item-info">
+                            <span class="file-icon">${icon}</span>
+                            <div>
+                                <div class="file-name">${file.original_filename}</div>
+                                <div class="file-size">${sizeKB} KB • ${uploadDate}</div>
+                                ${file.description ? `<div class="file-size">${file.description}</div>` : ''}
+                            </div>
+                        </div>
+                        <a href="download.php?id=${file.id}&type=submission" class="file-download-btn" download>הורדה</a>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getFileIcon(mimeType) {
+            if (mimeType.includes('pdf')) return '📕';
+            if (mimeType.includes('word') || mimeType.includes('document')) return '📄';
+            if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
+            if (mimeType.includes('image')) return '🖼️';
+            if (mimeType.includes('zip')) return '🗜️';
+            return '📎';
+        }
+    </script>
+</body>
+</html>
