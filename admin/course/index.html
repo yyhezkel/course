@@ -6,8 +6,56 @@
     <title>ניהול תלמידים - קורס AA</title>
     <link rel="stylesheet" href="../admin.css">
 </head>
-<body>
-    <div class="admin-container">
+<body class="admin-body">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">🎓</div>
+            <h2>לוח ניהול</h2>
+            <p class="admin-name" id="adminName">מנהל</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600;">ניהול קורס</div>
+            <a href="./index.html" class="nav-item active">
+                <span class="nav-icon">🎓</span>
+                <span>תלמידי הקורס</span>
+            </a>
+            <a href="./tasks.html" class="nav-item">
+                <span class="nav-icon">📝</span>
+                <span>ספריית משימות</span>
+            </a>
+            <a href="./assign.html" class="nav-item">
+                <span class="nav-icon">📤</span>
+                <span>הקצאת משימות</span>
+            </a>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600; margin-top: 20px;">ניהול טפסים</div>
+            <a href="../forms/index.html" class="nav-item">
+                <span class="nav-icon">📋</span>
+                <span>טפסים</span>
+            </a>
+            <a href="../users/index.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span>משתמשים</span>
+            </a>
+            <a href="../responses/index.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>תשובות</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button class="logout-btn" onclick="logout()">
+                <span>🚪</span>
+                <span>התנתק</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <div class="admin-container">
         <div class="page-header">
             <h1>ניהול תלמידי הקורס</h1>
             <div class="header-actions">
@@ -39,16 +87,51 @@
 
         <!-- Users Grid -->
         <div id="usersGrid" class="users-grid" style="display: none;"></div>
+        </div>
     </div>
 
     <script>
         let allUsers = [];
         let currentFilter = 'all';
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
             loadUsers();
             setupEventListeners();
         });
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('../auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'check' })
+                });
+
+                const data = await response.json();
+                if (!data.authenticated) {
+                    window.location.href = '../index.html';
+                    return;
+                }
+
+                document.getElementById('adminName').textContent = data.admin.full_name || data.admin.username;
+            } catch (error) {
+                console.error('Error checking auth:', error);
+                window.location.href = '../index.html';
+            }
+        }
+
+        function logout() {
+            fetch('../auth.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ action: 'logout' })
+            }).then(() => {
+                window.location.href = '../index.html';
+            });
+        }
 
         function setupEventListeners() {
             // Search input
