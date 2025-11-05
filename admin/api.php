@@ -1578,6 +1578,182 @@ if ($action === 'bulk_assign_task') {
 }
 
 // ============================================
+// MATERIALS MANAGEMENT
+// ============================================
+
+// Get all materials
+if ($action === 'get_all_materials') {
+    try {
+        $stmt = $db->query("
+            SELECT m.*, t.title as task_title
+            FROM course_materials m
+            LEFT JOIN course_tasks t ON m.task_id = t.id
+            ORDER BY m.created_at DESC
+        ");
+        $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'materials' => $materials
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Get materials by task
+if ($action === 'get_materials_by_task') {
+    $taskId = $input['task_id'] ?? '';
+
+    if (empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT * FROM course_materials
+            WHERE task_id = ?
+            ORDER BY display_order, created_at
+        ");
+        $stmt->execute([$taskId]);
+        $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'materials' => $materials
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Create material (metadata only, file upload handled separately)
+if ($action === 'create_material') {
+    $taskId = $input['task_id'] ?? null;
+    $title = $input['title'] ?? '';
+    $description = $input['description'] ?? '';
+    $materialType = $input['material_type'] ?? '';
+    $filePath = $input['file_path'] ?? '';
+    $externalUrl = $input['external_url'] ?? '';
+    $contentText = $input['content_text'] ?? '';
+    $displayOrder = $input['display_order'] ?? 0;
+    $isRequired = $input['is_required'] ?? 0;
+
+    if (empty($title) || empty($materialType)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסרים שדות חובה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO course_materials
+            (task_id, title, description, material_type, file_path, external_url, content_text, display_order, is_required, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ");
+        $stmt->execute([
+            $taskId,
+            $title,
+            $description,
+            $materialType,
+            $filePath,
+            $externalUrl,
+            $contentText,
+            $displayOrder,
+            $isRequired,
+            $_SESSION['admin_user_id']
+        ]);
+
+        $materialId = $db->lastInsertId();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'חומר נוסף בהצלחה',
+            'material_id' => $materialId
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Update material
+if ($action === 'update_material') {
+    $materialId = $input['material_id'] ?? '';
+    $title = $input['title'] ?? '';
+    $description = $input['description'] ?? '';
+    $displayOrder = $input['display_order'] ?? 0;
+    $isRequired = $input['is_required'] ?? 0;
+
+    if (empty($materialId) || empty($title)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסרים שדות חובה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            UPDATE course_materials
+            SET title = ?, description = ?, display_order = ?, is_required = ?
+            WHERE id = ?
+        ");
+        $stmt->execute([$title, $description, $displayOrder, $isRequired, $materialId]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'חומר עודכן בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Delete material
+if ($action === 'delete_material') {
+    $materialId = $input['material_id'] ?? '';
+
+    if (empty($materialId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה חומר']);
+        exit;
+    }
+
+    try {
+        // Get file path before deleting
+        $stmt = $db->prepare("SELECT file_path FROM course_materials WHERE id = ?");
+        $stmt->execute([$materialId]);
+        $material = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Delete from database
+        $stmt = $db->prepare("DELETE FROM course_materials WHERE id = ?");
+        $stmt->execute([$materialId]);
+
+        // Delete physical file if exists
+        if ($material && !empty($material['file_path']) && file_exists($material['file_path'])) {
+            unlink($material['file_path']);
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'חומר נמחק בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
 // DEFAULT
 // ============================================
 

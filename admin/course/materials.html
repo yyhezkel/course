@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול חומרים - ניהול קורס</title>
+    <link rel="stylesheet" href="../admin.css">
+</head>
+<body class="admin-body">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">🎓</div>
+            <h2>לוח ניהול</h2>
+            <p class="admin-name" id="adminName">מנהל</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600;">ניהול קורס</div>
+            <a href="./index.html" class="nav-item">
+                <span class="nav-icon">🎓</span>
+                <span>תלמידי הקורס</span>
+            </a>
+            <a href="./tasks.html" class="nav-item">
+                <span class="nav-icon">📝</span>
+                <span>ספריית משימות</span>
+            </a>
+            <a href="./assign.html" class="nav-item">
+                <span class="nav-icon">📤</span>
+                <span>הקצאת משימות</span>
+            </a>
+            <a href="./materials.html" class="nav-item active">
+                <span class="nav-icon">📚</span>
+                <span>חומרי לימוד</span>
+            </a>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600; margin-top: 20px;">ניהול טפסים</div>
+            <a href="../forms/index.html" class="nav-item">
+                <span class="nav-icon">📋</span>
+                <span>טפסים</span>
+            </a>
+            <a href="../users/index.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span>משתמשים</span>
+            </a>
+            <a href="../responses/index.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>תשובות</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button class="logout-btn" onclick="logout()">
+                <span>🚪</span>
+                <span>התנתק</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <div class="admin-container">
+            <!-- Page Header -->
+            <div class="page-header">
+                <div>
+                    <h1>ניהול חומרי לימוד</h1>
+                    <p>העלה וניהל חומרים לקורס</p>
+                </div>
+                <button class="btn btn-primary" onclick="showUploadModal()">+ העלאת חומר חדש</button>
+            </div>
+
+            <!-- Alert Messages -->
+            <div id="alertMessage" style="display: none;"></div>
+
+            <!-- Filter Section -->
+            <div class="search-filter">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <input type="text" id="searchInput" class="form-control" placeholder="חפש חומר..." onkeyup="filterMaterials()" style="flex: 1;">
+                    <select id="taskFilter" class="form-control" onchange="filterMaterials()" style="max-width: 250px;">
+                        <option value="">כל המשימות</option>
+                    </select>
+                    <select id="typeFilter" class="form-control" onchange="filterMaterials()" style="max-width: 200px;">
+                        <option value="">כל הסוגים</option>
+                        <option value="pdf">PDF</option>
+                        <option value="document">מסמך</option>
+                        <option value="video">וידאו</option>
+                        <option value="link">קישור</option>
+                        <option value="text">טקסט</option>
+                        <option value="image">תמונה</option>
+                        <option value="archive">ארכיון</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Materials List -->
+            <div id="materialsList" class="loading">
+                <div class="spinner"></div>
+                <p>טוען חומרים...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Material Modal -->
+    <div id="uploadModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; padding: 20px; overflow-y: auto;">
+        <div style="max-width: 700px; margin: 50px auto; background: white; border-radius: 10px; padding: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">העלאת חומר חדש</h2>
+                <button onclick="hideUploadModal()" style="border: none; background: none; font-size: 24px; cursor: pointer;">×</button>
+            </div>
+
+            <form id="uploadForm" onsubmit="uploadMaterial(event)">
+                <!-- Material Type Selection -->
+                <div class="form-group">
+                    <label class="form-label required">סוג חומר</label>
+                    <select id="materialTypeSelect" class="form-control" required onchange="handleTypeChange()">
+                        <option value="">-- בחר סוג --</option>
+                        <option value="file">קובץ (PDF, וידאו, תמונה וכו')</option>
+                        <option value="link">קישור חיצוני</option>
+                        <option value="text">תוכן טקסטואלי</option>
+                    </select>
+                </div>
+
+                <!-- File Upload Section -->
+                <div id="fileUploadSection" class="form-group" style="display: none;">
+                    <label class="form-label required">בחר קובץ</label>
+                    <input type="file" id="fileInput" class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.mp4,.webm,.mov,.mp3,.wav,.zip,.rar,.txt">
+                    <div class="form-help">מקסימום 50MB. סוגי קבצים נתמכים: מסמכים, תמונות, וידאו, אודיו, ארכיונים</div>
+                    <div id="uploadProgress" style="display: none; margin-top: 10px;">
+                        <div style="width: 100%; height: 20px; background: #e0e0e0; border-radius: 10px; overflow: hidden;">
+                            <div id="progressBar" style="height: 100%; background: #667eea; width: 0%; transition: width 0.3s;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- External Link Section -->
+                <div id="linkSection" class="form-group" style="display: none;">
+                    <label class="form-label required">קישור חיצוני</label>
+                    <input type="url" id="externalUrl" class="form-control" placeholder="https://example.com">
+                    <div class="form-help">קישור לסרטון YouTube, מצגת, מאמר וכו'</div>
+                </div>
+
+                <!-- Text Content Section -->
+                <div id="textSection" class="form-group" style="display: none;">
+                    <label class="form-label required">תוכן טקסטואלי</label>
+                    <textarea id="textContent" class="form-control" rows="8" placeholder="הכנס תוכן טקסטואלי..."></textarea>
+                </div>
+
+                <!-- Common Fields -->
+                <div class="form-group">
+                    <label class="form-label required" for="materialTitle">כותרת</label>
+                    <input type="text" id="materialTitle" class="form-control" required placeholder="שם החומר">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="materialDescription">תיאור</label>
+                    <textarea id="materialDescription" class="form-control" rows="3" placeholder="תיאור קצר של החומר"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="taskSelect">קשור למשימה</label>
+                    <select id="taskSelect" class="form-control">
+                        <option value="">לא מקושר למשימה ספציפית</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="displayOrder">סדר תצוגה</label>
+                        <input type="number" id="displayOrder" class="form-control" value="0" min="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="isRequired" style="margin-left: 8px;">
+                            חומר חובה
+                        </label>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="btn btn-success btn-block" id="uploadBtn">העלה חומר</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideUploadModal()">ביטול</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let allMaterials = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            await loadTasks();
+            await loadMaterials();
+        });
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('../auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'check' })
+                });
+
+                const data = await response.json();
+                if (!data.authenticated) {
+                    window.location.href = '../index.html';
+                    return;
+                }
+
+                document.getElementById('adminName').textContent = data.admin.full_name || data.admin.username;
+            } catch (error) {
+                console.error('Error checking auth:', error);
+                window.location.href = '../index.html';
+            }
+        }
+
+        async function loadTasks() {
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'get_all_tasks' })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.tasks) {
+                    const taskSelects = [document.getElementById('taskSelect'), document.getElementById('taskFilter')];
+
+                    data.tasks.filter(t => t.is_active == 1).forEach(task => {
+                        taskSelects.forEach(select => {
+                            if (select) {
+                                const option = document.createElement('option');
+                                option.value = task.id;
+                                option.textContent = task.title;
+                                select.appendChild(option);
+                            }
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+            }
+        }
+
+        async function loadMaterials() {
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'get_all_materials' })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.materials) {
+                    allMaterials = data.materials;
+                    renderMaterials();
+                }
+            } catch (error) {
+                console.error('Error loading materials:', error);
+                showAlert('שגיאה בטעינת החומרים', 'error');
+            }
+        }
+
+        function renderMaterials() {
+            const container = document.getElementById('materialsList');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const taskFilter = document.getElementById('taskFilter').value;
+            const typeFilter = document.getElementById('typeFilter').value;
+
+            let filtered = allMaterials.filter(m => {
+                const matchesSearch = !searchTerm ||
+                    m.title.toLowerCase().includes(searchTerm) ||
+                    (m.description && m.description.toLowerCase().includes(searchTerm));
+                const matchesTask = !taskFilter || m.task_id == taskFilter;
+                const matchesType = !typeFilter || m.material_type === typeFilter;
+                return matchesSearch && matchesTask && matchesType;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-tasks"><div class="no-tasks-icon">📚</div><p>אין חומרים להצגה</p></div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            container.className = 'tasks-table';
+
+            const table = document.createElement('table');
+            table.className = 'table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>כותרת</th>
+                        <th>סוג</th>
+                        <th>משימה</th>
+                        <th>חובה</th>
+                        <th>תאריך יצירה</th>
+                        <th>פעולות</th>
+                    </tr>
+                </thead>
+                <tbody id="materialsTableBody"></tbody>
+            `;
+
+            container.appendChild(table);
+
+            const tbody = document.getElementById('materialsTableBody');
+
+            filtered.forEach(material => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <div class="task-title">${material.title}</div>
+                        ${material.description ? `<div class="task-description">${material.description}</div>` : ''}
+                    </td>
+                    <td>
+                        <span class="badge badge-type">${getMaterialTypeLabel(material.material_type)}</span>
+                    </td>
+                    <td>${material.task_title || 'כללי'}</td>
+                    <td>${material.is_required == 1 ? '✓ כן' : 'לא'}</td>
+                    <td>${new Date(material.created_at).toLocaleDateString('he-IL')}</td>
+                    <td>
+                        <div class="action-buttons">
+                            ${material.file_path || material.external_url ? `<button class="btn btn-sm btn-secondary" onclick="viewMaterial(${material.id})">👁️ צפה</button>` : ''}
+                            <button class="btn btn-sm btn-danger" onclick="deleteMaterial(${material.id})">🗑️ מחק</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function filterMaterials() {
+            renderMaterials();
+        }
+
+        function showUploadModal() {
+            document.getElementById('uploadModal').style.display = 'block';
+            document.getElementById('uploadForm').reset();
+            handleTypeChange();
+        }
+
+        function hideUploadModal() {
+            document.getElementById('uploadModal').style.display = 'none';
+        }
+
+        function handleTypeChange() {
+            const type = document.getElementById('materialTypeSelect').value;
+
+            document.getElementById('fileUploadSection').style.display = type === 'file' ? 'block' : 'none';
+            document.getElementById('linkSection').style.display = type === 'link' ? 'block' : 'none';
+            document.getElementById('textSection').style.display = type === 'text' ? 'block' : 'none';
+
+            // Update required fields
+            document.getElementById('fileInput').required = type === 'file';
+            document.getElementById('externalUrl').required = type === 'link';
+            document.getElementById('textContent').required = type === 'text';
+        }
+
+        async function uploadMaterial(event) {
+            event.preventDefault();
+
+            const type = document.getElementById('materialTypeSelect').value;
+            const uploadBtn = document.getElementById('uploadBtn');
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'מעלה...';
+
+            try {
+                let filePath = '';
+                let materialType = '';
+                let externalUrl = '';
+                let contentText = '';
+
+                if (type === 'file') {
+                    // Upload file first
+                    const fileInput = document.getElementById('fileInput');
+                    if (!fileInput.files[0]) {
+                        showAlert('אנא בחר קובץ', 'error');
+                        return;
+                    }
+
+                    const formData = new FormData();
+                    formData.append('file', fileInput.files[0]);
+
+                    document.getElementById('uploadProgress').style.display = 'block';
+
+                    const uploadResponse = await fetch('upload_material.php', {
+                        method: 'POST',
+                        credentials: 'include',
+                        body: formData
+                    });
+
+                    const uploadData = await uploadResponse.json();
+
+                    if (!uploadData.success) {
+                        throw new Error(uploadData.message);
+                    }
+
+                    filePath = uploadData.file.file_path;
+                    materialType = uploadData.file.material_type;
+
+                } else if (type === 'link') {
+                    externalUrl = document.getElementById('externalUrl').value;
+                    materialType = 'link';
+                } else if (type === 'text') {
+                    contentText = document.getElementById('textContent').value;
+                    materialType = 'text';
+                }
+
+                // Create material record
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'create_material',
+                        task_id: document.getElementById('taskSelect').value || null,
+                        title: document.getElementById('materialTitle').value,
+                        description: document.getElementById('materialDescription').value,
+                        material_type: materialType,
+                        file_path: filePath,
+                        external_url: externalUrl,
+                        content_text: contentText,
+                        display_order: parseInt(document.getElementById('displayOrder').value) || 0,
+                        is_required: document.getElementById('isRequired').checked ? 1 : 0
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('החומר נוסף בהצלחה!', 'success');
+                    hideUploadModal();
+                    await loadMaterials();
+                } else {
+                    showAlert('שגיאה: ' + data.message, 'error');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('שגיאה בהעלאת החומר: ' + error.message, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'העלה חומר';
+                document.getElementById('uploadProgress').style.display = 'none';
+            }
+        }
+
+        function viewMaterial(materialId) {
+            const material = allMaterials.find(m => m.id === materialId);
+            if (!material) return;
+
+            if (material.external_url) {
+                window.open(material.external_url, '_blank');
+            } else if (material.file_path) {
+                window.open('../../' + material.file_path, '_blank');
+            }
+        }
+
+        async function deleteMaterial(materialId) {
+            if (!confirm('האם אתה בטוח שברצונך למחוק חומר זה?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'delete_material',
+                        material_id: materialId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('החומר נמחק בהצלחה', 'success');
+                    await loadMaterials();
+                } else {
+                    showAlert('שגיאה: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('שגיאה במחיקת החומר', 'error');
+            }
+        }
+
+        function getMaterialTypeLabel(type) {
+            const types = {
+                'pdf': 'PDF',
+                'document': 'מסמך',
+                'video': 'וידאו',
+                'audio': 'אודיו',
+                'image': 'תמונה',
+                'link': 'קישור',
+                'text': 'טקסט',
+                'archive': 'ארכיון'
+            };
+            return types[type] || type;
+        }
+
+        function showAlert(message, type) {
+            const alertDiv = document.getElementById('alertMessage');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            alertDiv.style.display = 'block';
+
+            setTimeout(() => {
+                alertDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function logout() {
+            fetch('../auth.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ action: 'logout' })
+            }).then(() => {
+                window.location.href = '../index.html';
+            });
+        }
+    </script>
+</body>
+</html>
