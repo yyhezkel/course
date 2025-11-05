@@ -721,7 +721,8 @@
 
         function goToForm() {
             // Redirect to form page with task context
-            window.location.href = `index.html?task=${userTaskId}`;
+            // The form will know to return here when done
+            window.location.href = `index.html?task=${userTaskId}&form_id=${taskData.form_id}`;
         }
 
         function getStatusText(status) {

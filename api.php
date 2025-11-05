@@ -177,8 +177,7 @@ if ($action === 'login') {
         echo json_encode([
             'success' => true,
             'user_id' => $user['id'],
-            'previous_data' => $previousData,
-            'first_unanswered_index' => $firstUnansweredIndex,
+            'redirect_to' => 'dashboard.html', // Redirect to dashboard instead of form
             'message' => 'כניסה מאושרת.'
         ]);
         exit;

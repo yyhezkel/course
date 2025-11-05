@@ -702,7 +702,17 @@ loginButton.addEventListener('click', async () => {
     const result = await sendApiRequest('login', { tz: tz });
 
     if (result.success) {
-        console.log("אימות מוצלח! טוען שאלות...");
+        console.log("אימות מוצלח!");
+
+        // Check if there's a redirect specified (new behavior: go to dashboard)
+        if (result.redirect_to) {
+            console.log("מפנה ללוח המשימות...");
+            window.location.href = result.redirect_to;
+            return;
+        }
+
+        // Legacy behavior: load form directly (for backward compatibility)
+        console.log("טוען שאלות...");
 
         // שמירת ה-user_id שהתקבל מהשרת
         currentUserId = result.user_id;
