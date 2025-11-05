@@ -8,11 +8,17 @@
     <link rel="stylesheet" href="../admin.css">
 </head>
 <body class="admin-body">
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileMenu()">☰</button>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileMenu()"></div>
+
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-logo">👨‍💼</div>
-            <h2>פאנל ניהול</h2>
+            <h2>לוח ניהול</h2>
             <p class="admin-name" id="admin-name">טוען...</p>
         </div>
 
@@ -21,30 +27,51 @@
                 <span class="nav-icon">📊</span>
                 <span>לוח בקרה</span>
             </a>
-            <a href="../users/" class="nav-item">
-                <span class="nav-icon">👥</span>
-                <span>ניהול משתמשים</span>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600; margin-top: 10px;">ניהול קורס</div>
+
+            <a href="../course/index.html" class="nav-item">
+                <span class="nav-icon">🎓</span>
+                <span>תלמידים</span>
             </a>
-            <a href="../forms/" class="nav-item">
+            <a href="../course/tasks.html" class="nav-item">
                 <span class="nav-icon">📝</span>
+                <span>ספריית משימות</span>
+            </a>
+            <a href="../course/assign.html" class="nav-item">
+                <span class="nav-icon">📤</span>
+                <span>הקצאת משימות</span>
+            </a>
+            <a href="../course/materials.html" class="nav-item">
+                <span class="nav-icon">📚</span>
+                <span>חומרי לימוד</span>
+            </a>
+            <a href="../course/reports.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>דוחות וניתוח</span>
+            </a>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600; margin-top: 20px;">ניהול טפסים</div>
+
+            <a href="../forms/" class="nav-item">
+                <span class="nav-icon">📋</span>
                 <span>בניית טפסים</span>
             </a>
-            <a href="../questions/" class="nav-item active">
+            <a href="./" class="nav-item active">
                 <span class="nav-icon">❓</span>
                 <span>ספריית שאלות</span>
             </a>
             <a href="../responses/" class="nav-item">
-                <span class="nav-icon">📋</span>
-                <span>צפייה בתשובות</span>
-            </a>
-            <a href="#" class="nav-item nav-item-danger" onclick="logout()">
-                <span class="nav-icon">🚪</span>
-                <span>התנתק</span>
+                <span class="nav-icon">📄</span>
+                <span>תשובות</span>
             </a>
         </nav>
 
         <div class="sidebar-footer">
-            <p>גרסה 1.0</p>
+            <button class="logout-btn" onclick="logout()">
+                <span>🚪</span>
+                <span>התנתק</span>
+            </button>
         </div>
     </aside>
 
@@ -402,6 +429,23 @@
         function createQuestion() {
             showError('תכונת הוספת שאלות תהיה זמינה בקרוב. כרגע ניתן לצפות ולחפש בשאלות הקיימות.');
             // TODO: Implement create_question API endpoint
+        }
+
+        // Mobile Menu Toggle
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+
+            if (sidebar.classList.contains('active')) {
+                overlay.style.display = 'block';
+                setTimeout(() => overlay.classList.add('active'), 10);
+            } else {
+                overlay.classList.remove('active');
+                setTimeout(() => overlay.style.display = 'none', 300);
+            }
         }
     </script>
 </body>
