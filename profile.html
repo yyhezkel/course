@@ -83,7 +83,8 @@
 
             <!-- Actions -->
             <div style="text-align: center; margin-top: 30px;">
-                <a href="dashboard.html" class="btn btn-primary">חזרה ללוח המשימות</a>
+                <a href="profile-settings.html" class="btn btn-primary">⚙️ הגדרות חשבון</a>
+                <a href="dashboard.html" class="btn btn-secondary" style="text-decoration: none;">חזרה ללוח המשימות</a>
                 <button class="btn btn-secondary" onclick="logout()">יציאה מהמערכת</button>
             </div>
         </div>
@@ -154,9 +155,18 @@
             document.getElementById('profileContent').style.display = 'block';
 
             // Profile header
-            const initials = userData.tz ? userData.tz.substring(0, 2) : '??';
+            const displayName = userData.full_name || userData.tz || 'משתמש';
+            // Get initials from full name if available, otherwise from TZ
+            let initials = '??';
+            if (userData.full_name) {
+                const names = userData.full_name.split(' ');
+                initials = names.map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
+            } else if (userData.tz) {
+                initials = userData.tz.substring(0, 2);
+            }
+
             document.getElementById('profileAvatar').textContent = initials;
-            document.getElementById('profileName').textContent = userData.tz || 'משתמש';
+            document.getElementById('profileName').textContent = displayName;
             document.getElementById('profileId').textContent = `מספר זיהוי: ${userData.tz}`;
 
             // Statistics

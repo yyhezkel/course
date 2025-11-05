@@ -1222,7 +1222,7 @@ if ($action === 'get_user_detail') {
 
     try {
         // Get user info
-        $stmt = $db->prepare("SELECT id, tz, is_blocked, last_login FROM users WHERE id = ?");
+        $stmt = $db->prepare("SELECT id, tz, full_name, is_blocked, is_active, last_login FROM users WHERE id = ?");
         $stmt->execute([$userId]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1241,17 +1241,21 @@ if ($action === 'get_user_detail') {
                 ut.due_date,
                 ut.priority,
                 ut.admin_notes,
+                ut.feedback,
+                ut.submission_text,
+                ut.submission_file_path,
+                ut.submitted_at,
+                ut.reviewed_at,
+                ut.grade,
                 ct.title,
                 ct.description,
                 ct.task_type,
                 ct.estimated_duration,
                 ct.points,
                 ct.sequence_order,
-                ct.form_id,
-                tp.review_notes
+                ct.form_id
             FROM user_tasks ut
             JOIN course_tasks ct ON ut.task_id = ct.id
-            LEFT JOIN task_progress tp ON ut.id = tp.user_task_id
             WHERE ut.user_id = ?
             ORDER BY ct.sequence_order ASC
         ");
@@ -1615,7 +1619,7 @@ if ($action === 'bulk_assign_task') {
     }
 
     try {
-        $adminId = $_SESSION['admin_id'] ?? null;
+        $adminId = $_SESSION['admin_user_id'] ?? null;
         $assignedCount = 0;
         $skippedCount = 0;
 
@@ -1641,18 +1645,23 @@ if ($action === 'bulk_assign_task') {
             $stmt->execute([$userId, $taskId, $adminId, $dueDate, $priority]);
             $userTaskId = $db->lastInsertId();
 
-            // Create notification
-            $stmt = $db->prepare("
-                INSERT INTO notifications (user_id, title, message, notification_type, related_task_id, related_user_task_id)
-                VALUES (?, ?, ?, 'task_assigned', ?, ?)
-            ");
-            $stmt->execute([
-                $userId,
-                'משימה חדשה הוקצתה',
-                "הוקצתה לך משימה חדשה: {$taskTitle}",
-                $taskId,
-                $userTaskId
-            ]);
+            // Try to create notification (optional - won't fail assignment if notifications table doesn't exist)
+            try {
+                $stmt = $db->prepare("
+                    INSERT INTO notifications (user_id, title, message, notification_type, related_task_id, related_user_task_id)
+                    VALUES (?, ?, ?, 'task_assigned', ?, ?)
+                ");
+                $stmt->execute([
+                    $userId,
+                    'משימה חדשה הוקצתה',
+                    "הוקצתה לך משימה חדשה: {$taskTitle}",
+                    $taskId,
+                    $userTaskId
+                ]);
+            } catch (Exception $notifError) {
+                // Notification failed but assignment succeeded - this is okay
+                // Notifications table may not exist yet
+            }
 
             $assignedCount++;
         }
@@ -2029,6 +2038,45 @@ if ($action === 'get_task_stats') {
         echo json_encode([
             'success' => true,
             'task_stats' => $stats
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
+// MIGRATIONS
+// ============================================
+
+if ($action === 'run_migration') {
+    $migrationName = $input['migration'] ?? '';
+
+    if (empty($migrationName)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר שם migration']);
+        exit;
+    }
+
+    $migrationFile = __DIR__ . '/../migrate_' . $migrationName . '.php';
+
+    if (!file_exists($migrationFile)) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'קובץ migration לא נמצא']);
+        exit;
+    }
+
+    try {
+        // Capture output
+        ob_start();
+        include $migrationFile;
+        $output = ob_get_clean();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Migration הושלם בהצלחה',
+            'output' => $output
         ]);
     } catch (Exception $e) {
         http_response_code(500);

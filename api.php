@@ -107,6 +107,34 @@ function initializeCourseTables($db) {
     }
 }
 
+// Initialize username/password fields if they don't exist
+function ensureUserAuthFields($db) {
+    try {
+        $result = $db->query("PRAGMA table_info(users)");
+        $columns = $result->fetchAll(PDO::FETCH_ASSOC);
+        $existingColumns = array_column($columns, 'name');
+
+        $fieldsToAdd = [
+            'username' => 'TEXT UNIQUE',
+            'password_hash' => 'TEXT'
+        ];
+
+        foreach ($fieldsToAdd as $colName => $colType) {
+            if (!in_array($colName, $existingColumns)) {
+                $db->exec("ALTER TABLE users ADD COLUMN $colName $colType");
+            }
+        }
+
+        // Create index for faster username lookups
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)");
+    } catch (Exception $e) {
+        // Fields might already exist, ignore error
+    }
+}
+
+// Initialize auth fields on any request
+ensureUserAuthFields($db);
+
 // Initialize tables on dashboard or task-related requests
 if ($action === 'get_dashboard' || strpos($action, 'task') !== false || strpos($action, 'material') !== false) {
     initializeCourseTables($db);
@@ -119,35 +147,75 @@ if ($action === 'get_dashboard' || strpos($action, 'task') !== false || strpos($
 // === 1. טיפול באימות כניסה (LOGIN) ===
 if ($action === 'login') {
     $tz = $input['tz'] ?? '';
+    $username = $input['username'] ?? '';
+    $password = $input['password'] ?? '';
 
-    // Validate that ID is numeric and has correct length (7 or 9 digits)
-    if (empty($tz) || !is_numeric($tz)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'מספר זהוי לא תקין.']);
-        exit;
-    }
+    $user = null;
 
-    $idLength = strlen($tz);
-    if ($idLength !== 7 && $idLength !== 9) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'מספר זהוי חייב להכיל 7 או 9 ספרות.']);
-        exit;
-    }
+    // METHOD 1: Login with username + password
+    if (!empty($username) && !empty($password)) {
+        // Get user by username
+        $stmt = $db->prepare("SELECT id, is_blocked, failed_attempts, id_type, password_hash, tz FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // 1. קריאת נתוני משתמש - get user with id_type
-    $stmt = $db->prepare("SELECT id, is_blocked, failed_attempts, id_type FROM users WHERE tz = ?");
-    $stmt->execute([$tz]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Verify password
+        if ($user && !empty($user['password_hash'])) {
+            if (!password_verify($password, $user['password_hash'])) {
+                // Wrong password
+                $user = null;
+            }
+        } else {
+            // No password set for this user
+            $user = null;
+        }
 
-    // Validate that the ID matches the expected type
-    if ($user) {
-        $expectedLength = ($user['id_type'] ?? 'tz') === 'tz' ? 9 : 7;
-        if ($idLength !== $expectedLength) {
-            http_response_code(400);
-            $expectedType = $expectedLength === 9 ? 'תעודת זהות (9 ספרות)' : 'מספר אישי (7 ספרות)';
-            echo json_encode(['success' => false, 'message' => "מספר זה רשום כ-$expectedType"]);
+        if (!$user) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'שם משתמש או סיסמה שגויים.']);
             exit;
         }
+
+        // Use tz from database for session
+        $tz = $user['tz'];
+    }
+    // METHOD 2: Login with personal number (tz) only - legacy method
+    else if (!empty($tz)) {
+        // Validate that ID is numeric and has correct length (7 or 9 digits)
+        if (!is_numeric($tz)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'מספר זהוי לא תקין.']);
+            exit;
+        }
+
+        $idLength = strlen($tz);
+        if ($idLength !== 7 && $idLength !== 9) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'מספר זהוי חייב להכיל 7 או 9 ספרות.']);
+            exit;
+        }
+
+        // Get user by tz
+        $stmt = $db->prepare("SELECT id, is_blocked, failed_attempts, id_type FROM users WHERE tz = ?");
+        $stmt->execute([$tz]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Validate that the ID matches the expected type
+        if ($user) {
+            $expectedLength = ($user['id_type'] ?? 'tz') === 'tz' ? 9 : 7;
+            if ($idLength !== $expectedLength) {
+                http_response_code(400);
+                $expectedType = $expectedLength === 9 ? 'תעודת זהות (9 ספרות)' : 'מספר אישי (7 ספרות)';
+                echo json_encode(['success' => false, 'message' => "מספר זה רשום כ-$expectedType"]);
+                exit;
+            }
+        }
+    }
+    // No valid login credentials provided
+    else {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'נא למלא מספר זהוי או שם משתמש וסיסמה.']);
+        exit;
     }
 
     if ($user) {
@@ -352,6 +420,23 @@ if ($action === 'submit') {
     }
 
     if ($success) {
+        // Auto-populate full_name from first name and last name answers
+        try {
+            // Get first name and last name from form responses
+            $firstName = $formData['personal_firstName'] ?? null;
+            $lastName = $formData['personal_lastName'] ?? null;
+
+            // If both names exist, update the user's full_name
+            if ($firstName && $lastName) {
+                $fullName = trim($firstName . ' ' . $lastName);
+                $stmt = $db->prepare("UPDATE users SET full_name = ? WHERE id = ?");
+                $stmt->execute([$fullName, $userId]);
+            }
+        } catch (Exception $e) {
+            // Don't fail the submission if name update fails
+            error_log("Error updating full_name: " . $e->getMessage());
+        }
+
         $db->commit();
         echo json_encode(['success' => true, 'message' => 'הטופס נשמר בהצלחה!']);
     } else {
@@ -783,7 +868,7 @@ if ($action === 'get_dashboard') {
 
     try {
         // שליפת פרטי המשתמש
-        $stmt = $db->prepare("SELECT tz, id_type FROM users WHERE id = ?");
+        $stmt = $db->prepare("SELECT tz, id_type, full_name, username FROM users WHERE id = ?");
         $stmt->execute([$userId]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1003,6 +1088,134 @@ if ($action === 'update_task_status') {
 if ($action === 'logout') {
     session_destroy();
     echo json_encode(['success' => true, 'message' => 'יצאת מהמערכת בהצלחה.']);
+    exit;
+}
+
+// === 10. קבלת מידע על המשתמש (GET_USER_INFO) ===
+if ($action === 'get_user_info') {
+    // Check authentication
+    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'נדרש אימות.']);
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+
+    try {
+        $stmt = $db->prepare("SELECT id, tz, full_name, username, id_type, last_login FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user) {
+            echo json_encode([
+                'success' => true,
+                'user' => $user
+            ]);
+        } else {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'משתמש לא נמצא.']);
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בשליפת נתוני משתמש.']);
+    }
+    exit;
+}
+
+// === 11. עדכון שם משתמש (UPDATE_USERNAME) ===
+if ($action === 'update_username') {
+    // Check authentication
+    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'נדרש אימות.']);
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+    $username = $input['username'] ?? '';
+
+    // Validate username
+    if (empty($username)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'שם משתמש חובה.']);
+        exit;
+    }
+
+    // Validate username format (3-20 chars, alphanumeric + underscore only)
+    if (!preg_match('/^[a-zA-Z0-9_]{3,20}$/', $username)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'שם משתמש לא תקין. השתמש רק באותיות אנגליות, מספרים וקו תחתון (_), 3-20 תווים.']);
+        exit;
+    }
+
+    try {
+        // Check if username already exists (for another user)
+        $stmt = $db->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
+        $stmt->execute([$username, $userId]);
+        if ($stmt->fetch()) {
+            http_response_code(409);
+            echo json_encode(['success' => false, 'message' => 'שם משתמש זה כבר תפוס. נא לבחור שם משתמש אחר.']);
+            exit;
+        }
+
+        // Update username
+        $stmt = $db->prepare("UPDATE users SET username = ? WHERE id = ?");
+        $stmt->execute([$username, $userId]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'שם המשתמש עודכן בהצלחה!',
+            'username' => $username
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון שם משתמש: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// === 12. עדכון סיסמה (UPDATE_PASSWORD) ===
+if ($action === 'update_password') {
+    // Check authentication
+    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'נדרש אימות.']);
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+    $password = $input['password'] ?? '';
+
+    // Validate password
+    if (empty($password)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'סיסמה חובה.']);
+        exit;
+    }
+
+    if (strlen($password) < 6) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'הסיסמה חייבת להכיל לפחות 6 תווים.']);
+        exit;
+    }
+
+    try {
+        // Hash password
+        $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+
+        // Update password
+        $stmt = $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+        $stmt->execute([$passwordHash, $userId]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'הסיסמה עודכנה בהצלחה!'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון סיסמה: ' . $e->getMessage()]);
+    }
     exit;
 }
 
