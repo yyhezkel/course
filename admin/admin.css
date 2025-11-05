@@ -149,6 +149,18 @@
     max-width: 1400px;
 }
 
+.admin-content {
+    flex: 1;
+    margin-right: var(--sidebar-width);
+    padding: 2rem;
+    min-height: 100vh;
+}
+
+.admin-container {
+    max-width: 1400px;
+    width: 100%;
+}
+
 .admin-header {
     margin-bottom: 2rem;
 }
