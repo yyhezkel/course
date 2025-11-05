@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run Migration</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            direction: rtl;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .output {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            direction: ltr;
+            text-align: left;
+        }
+        .success {
+            background: #d1fae5;
+            border-color: #10b981;
+        }
+        .error {
+            background: #fee2e2;
+            border-color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Database Migration Tool</h1>
+    <p>This page allows you to run database migrations for the AA Course Platform.</p>
+
+    <div>
+        <button onclick="runMigration('add_username')">Run: Add Username & Password Fields</button>
+    </div>
+
+    <div id="output"></div>
+
+    <script>
+        async function runMigration(migrationName) {
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = '<div class="output">Running migration...</div>';
+
+            try {
+                const response = await fetch('admin/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'run_migration',
+                        migration: migrationName
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    outputDiv.innerHTML = `
+                        <div class="output success">
+                            <strong>✅ Migration Successful!</strong><br><br>
+                            ${data.output || data.message}
+                        </div>
+                    `;
+                } else {
+                    outputDiv.innerHTML = `
+                        <div class="output error">
+                            <strong>❌ Migration Failed</strong><br><br>
+                            ${data.message}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                outputDiv.innerHTML = `
+                    <div class="output error">
+                        <strong>❌ Error</strong><br><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
