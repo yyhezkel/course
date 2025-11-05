@@ -43,30 +43,30 @@ function loadAdminSidebar(activePage) {
         </div>
 
         <nav class="sidebar-nav">
-            <a href="${basePath}dashboard.html" class="nav-item ${activePage === 'dashboard' ? 'active' : ''}">
+            <a href="${basePath}dashboard.php" class="nav-item ${activePage === 'dashboard' ? 'active' : ''}">
                 <span class="nav-icon">📊</span>
                 <span>לוח בקרה</span>
             </a>
 
             <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600; margin-top: 10px;">ניהול קורס</div>
 
-            <a href="${basePath}course/index.html" class="nav-item ${activePage === 'students' ? 'active' : ''}">
+            <a href="${basePath}course/index.php" class="nav-item ${activePage === 'students' ? 'active' : ''}">
                 <span class="nav-icon">🎓</span>
                 <span>תלמידים</span>
             </a>
-            <a href="${basePath}course/tasks.html" class="nav-item ${activePage === 'tasks' ? 'active' : ''}">
+            <a href="${basePath}course/tasks.php" class="nav-item ${activePage === 'tasks' ? 'active' : ''}">
                 <span class="nav-icon">📝</span>
                 <span>ספריית משימות</span>
             </a>
-            <a href="${basePath}course/assign.html" class="nav-item ${activePage === 'assign' ? 'active' : ''}">
+            <a href="${basePath}course/assign.php" class="nav-item ${activePage === 'assign' ? 'active' : ''}">
                 <span class="nav-icon">📤</span>
                 <span>הקצאת משימות</span>
             </a>
-            <a href="${basePath}course/materials.html" class="nav-item ${activePage === 'materials' ? 'active' : ''}">
+            <a href="${basePath}course/materials.php" class="nav-item ${activePage === 'materials' ? 'active' : ''}">
                 <span class="nav-icon">📚</span>
                 <span>חומרי לימוד</span>
             </a>
-            <a href="${basePath}course/reports.html" class="nav-item ${activePage === 'reports' ? 'active' : ''}">
+            <a href="${basePath}course/reports.php" class="nav-item ${activePage === 'reports' ? 'active' : ''}">
                 <span class="nav-icon">📊</span>
                 <span>דוחות וניתוח</span>
             </a>

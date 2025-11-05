@@ -33,30 +33,30 @@ function isActive($page, $activePage) {
     </div>
 
     <nav class="sidebar-nav">
-        <a href="<?php echo $basePath ?? '../'; ?>dashboard.html" class="nav-item <?php echo isActive('dashboard', $activePage); ?>">
+        <a href="<?php echo $basePath ?? '../'; ?>dashboard.php" class="nav-item <?php echo isActive('dashboard', $activePage); ?>">
             <span class="nav-icon">📊</span>
             <span>לוח בקרה</span>
         </a>
 
         <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600; margin-top: 10px;">ניהול קורס</div>
 
-        <a href="<?php echo $basePath ?? '../'; ?>course/index.html" class="nav-item <?php echo isActive('students', $activePage); ?>">
+        <a href="<?php echo $basePath ?? '../'; ?>course/index.php" class="nav-item <?php echo isActive('students', $activePage); ?>">
             <span class="nav-icon">🎓</span>
             <span>תלמידים</span>
         </a>
-        <a href="<?php echo $basePath ?? '../'; ?>course/tasks.html" class="nav-item <?php echo isActive('tasks', $activePage); ?>">
+        <a href="<?php echo $basePath ?? '../'; ?>course/tasks.php" class="nav-item <?php echo isActive('tasks', $activePage); ?>">
             <span class="nav-icon">📝</span>
             <span>ספריית משימות</span>
         </a>
-        <a href="<?php echo $basePath ?? '../'; ?>course/assign.html" class="nav-item <?php echo isActive('assign', $activePage); ?>">
+        <a href="<?php echo $basePath ?? '../'; ?>course/assign.php" class="nav-item <?php echo isActive('assign', $activePage); ?>">
             <span class="nav-icon">📤</span>
             <span>הקצאת משימות</span>
         </a>
-        <a href="<?php echo $basePath ?? '../'; ?>course/materials.html" class="nav-item <?php echo isActive('materials', $activePage); ?>">
+        <a href="<?php echo $basePath ?? '../'; ?>course/materials.php" class="nav-item <?php echo isActive('materials', $activePage); ?>">
             <span class="nav-icon">📚</span>
             <span>חומרי לימוד</span>
         </a>
-        <a href="<?php echo $basePath ?? '../'; ?>course/reports.html" class="nav-item <?php echo isActive('reports', $activePage); ?>">
+        <a href="<?php echo $basePath ?? '../'; ?>course/reports.php" class="nav-item <?php echo isActive('reports', $activePage); ?>">
             <span class="nav-icon">📊</span>
             <span>דוחות וניתוח</span>
         </a>
