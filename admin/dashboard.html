@@ -21,12 +21,34 @@
                 <span class="nav-icon">📊</span>
                 <span>לוח בקרה</span>
             </a>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #999; font-weight: bold; margin-top: 10px;">ניהול קורס</div>
+
+            <a href="./course/index.html" class="nav-item">
+                <span class="nav-icon">🎓</span>
+                <span>תלמידי הקורס</span>
+            </a>
+            <a href="./course/tasks.html" class="nav-item">
+                <span class="nav-icon">📝</span>
+                <span>ספריית משימות</span>
+            </a>
+            <a href="./course/assign.html" class="nav-item">
+                <span class="nav-icon">➕</span>
+                <span>הקצאת משימות</span>
+            </a>
+            <a href="./course/materials.html" class="nav-item">
+                <span class="nav-icon">📚</span>
+                <span>חומרי לימוד</span>
+            </a>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #999; font-weight: bold; margin-top: 10px;">ניהול טפסים</div>
+
             <a href="./users/" class="nav-item">
                 <span class="nav-icon">👥</span>
                 <span>ניהול משתמשים</span>
             </a>
             <a href="./forms/" class="nav-item">
-                <span class="nav-icon">📝</span>
+                <span class="nav-icon">📋</span>
                 <span>בניית טפסים</span>
             </a>
             <a href="./questions/" class="nav-item">
@@ -34,12 +56,19 @@
                 <span>ספריית שאלות</span>
             </a>
             <a href="./responses/" class="nav-item">
-                <span class="nav-icon">📋</span>
+                <span class="nav-icon">📄</span>
                 <span>צפייה בתשובות</span>
             </a>
             <a href="./responses/table.html" class="nav-item">
                 <span class="nav-icon">📊</span>
                 <span>תצוגת טבלה</span>
+            </a>
+
+            <div style="border-top: 1px solid #e0e0e0; margin: 15px 0;"></div>
+
+            <a href="../dashboard.html" class="nav-item" target="_blank">
+                <span class="nav-icon">👁️</span>
+                <span>תצוגת תלמיד</span>
             </a>
             <a href="#" class="nav-item nav-item-danger" onclick="logout()">
                 <span class="nav-icon">🚪</span>
@@ -93,6 +122,39 @@
                 <div class="stat-content">
                     <div class="stat-label">שאלות במאגר</div>
                     <div class="stat-value" id="total-questions">-</div>
+                    <div class="stat-trend">טוען...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Management Stats -->
+        <div class="section-header" style="margin: 30px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;">
+            <h2 style="font-size: 20px; color: #333;">סטטיסטיקות ניהול קורס</h2>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📋</div>
+                <div class="stat-content">
+                    <div class="stat-label">סך המשימות</div>
+                    <div class="stat-value" id="total-tasks">-</div>
+                    <div class="stat-trend">טוען...</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">✅</div>
+                <div class="stat-content">
+                    <div class="stat-label">משימות שהושלמו</div>
+                    <div class="stat-value" id="completed-tasks">-</div>
+                    <div class="stat-trend">טוען...</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">⏳</div>
+                <div class="stat-content">
+                    <div class="stat-label">ממתינות לבדיקה</div>
+                    <div class="stat-value" id="pending-reviews">-</div>
                     <div class="stat-trend">טוען...</div>
                 </div>
             </div>
@@ -166,6 +228,11 @@
                     document.getElementById('total-forms').textContent = result.stats.total_forms || 0;
                     document.getElementById('completed-forms').textContent = result.stats.completed_forms || 0;
                     document.getElementById('total-questions').textContent = result.stats.total_questions || 0;
+
+                    // Course management stats
+                    document.getElementById('total-tasks').textContent = result.stats.total_tasks || 0;
+                    document.getElementById('completed-tasks').textContent = result.stats.completed_tasks || 0;
+                    document.getElementById('pending-reviews').textContent = result.stats.pending_reviews || 0;
 
                     // Load activity log
                     loadActivityLog(result.stats.recent_activity || []);

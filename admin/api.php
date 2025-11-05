@@ -44,6 +44,22 @@ if ($action === 'dashboard_stats') {
         // Get total questions
         $totalQuestions = $db->query("SELECT COUNT(*) FROM questions")->fetchColumn();
 
+        // Get course management stats - gracefully handle if tables don't exist
+        $totalTasks = 0;
+        $completedTasksCount = 0;
+        $pendingReviews = 0;
+
+        try {
+            $tasksTableCheck = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='course_tasks'")->fetch();
+            if ($tasksTableCheck) {
+                $totalTasks = $db->query("SELECT COUNT(*) FROM course_tasks WHERE is_active = 1")->fetchColumn();
+                $completedTasksCount = $db->query("SELECT COUNT(*) FROM user_tasks WHERE status IN ('completed', 'approved')")->fetchColumn();
+                $pendingReviews = $db->query("SELECT COUNT(*) FROM user_tasks WHERE status = 'needs_review'")->fetchColumn();
+            }
+        } catch (Exception $courseError) {
+            error_log("Course stats error: " . $courseError->getMessage());
+        }
+
         // Get recent activity (last 10 activities) - gracefully handle if table doesn't exist
         $recentActivity = [];
         try {
@@ -67,6 +83,15 @@ if ($action === 'dashboard_stats') {
             error_log("Activity log error: " . $activityError->getMessage());
         }
 
+        // Get admin info
+        $adminId = $_SESSION['admin_id'] ?? null;
+        $adminInfo = null;
+        if ($adminId) {
+            $stmt = $db->prepare("SELECT username, role FROM admin_users WHERE id = ?");
+            $stmt->execute([$adminId]);
+            $adminInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+
         echo json_encode([
             'success' => true,
             'stats' => [
@@ -74,8 +99,12 @@ if ($action === 'dashboard_stats') {
                 'total_forms' => (int)$totalForms,
                 'completed_forms' => (int)$completedForms,
                 'total_questions' => (int)$totalQuestions,
+                'total_tasks' => (int)$totalTasks,
+                'completed_tasks' => (int)$completedTasksCount,
+                'pending_reviews' => (int)$pendingReviews,
                 'recent_activity' => $recentActivity
-            ]
+            ],
+            'admin_info' => $adminInfo
         ]);
     } catch (Exception $e) {
         http_response_code(500);
@@ -1399,6 +1428,46 @@ if ($action === 'update_task') {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון המשימה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Delete task
+if ($action === 'delete_task') {
+    $taskId = $input['task_id'] ?? '';
+
+    if (empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה']);
+        exit;
+    }
+
+    try {
+        // Check if task has assignments
+        $stmt = $db->prepare("SELECT COUNT(*) FROM user_tasks WHERE task_id = ?");
+        $stmt->execute([$taskId]);
+        $assignmentsCount = $stmt->fetchColumn();
+
+        if ($assignmentsCount > 0) {
+            // Don't delete, just deactivate
+            $stmt = $db->prepare("UPDATE course_tasks SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+            $stmt->execute([$taskId]);
+            echo json_encode([
+                'success' => true,
+                'message' => 'המשימה הושבתה (לא נמחקה כיוון שיש לה הקצאות קיימות)'
+            ]);
+        } else {
+            // Safe to delete
+            $stmt = $db->prepare("DELETE FROM course_tasks WHERE id = ?");
+            $stmt->execute([$taskId]);
+            echo json_encode([
+                'success' => true,
+                'message' => 'המשימה נמחקה בהצלחה'
+            ]);
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה במחיקת המשימה: ' . $e->getMessage()]);
     }
     exit;
 }

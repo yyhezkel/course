@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ספריית משימות - ניהול קורס</title>
+    <link rel="stylesheet" href="../admin.css">
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .tasks-table {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: right;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .table td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: top;
+        }
+
+        .table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .task-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .task-description {
+            font-size: 13px;
+            color: #666;
+            max-width: 300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .task-meta {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge-type {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .no-tasks {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .no-tasks-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .search-filter {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .search-filter input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Header -->
+        <div class="page-header">
+            <div>
+                <h1>ספריית משימות</h1>
+                <p>ניהול כל המשימות והמטלות בקורס</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="../dashboard.html" class="btn btn-secondary">חזרה לדשבורד</a>
+                <a href="task-editor.html" class="btn btn-primary">+ משימה חדשה</a>
+            </div>
+        </div>
+
+        <!-- Search/Filter -->
+        <div class="search-filter">
+            <input type="text" id="searchInput" placeholder="חיפוש משימה..." onkeyup="filterTasks()">
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>טוען משימות...</p>
+        </div>
+
+        <!-- Tasks Table -->
+        <div id="tasksContent" style="display: none;">
+            <div class="tasks-table">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%">משימה</th>
+                            <th style="width: 15%">סוג</th>
+                            <th style="width: 10%">נקודות</th>
+                            <th style="width: 15%">הוקצתה ל</th>
+                            <th style="width: 10%">סטטוס</th>
+                            <th style="width: 10%">פעולות</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tasksTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allTasks = [];
+
+        document.addEventListener('DOMContentLoaded', loadTasks);
+
+        async function loadTasks() {
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'get_all_tasks' })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load tasks');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    allTasks = data.tasks;
+                    renderTasks(allTasks);
+                } else {
+                    throw new Error(data.message || 'Failed to load tasks');
+                }
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+                document.getElementById('loading').innerHTML = `
+                    <p style="color: red;">שגיאה בטעינת המשימות</p>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+
+        function renderTasks(tasks) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('tasksContent').style.display = 'block';
+
+            const tasksTable = document.getElementById('tasksTable');
+
+            if (tasks.length === 0) {
+                tasksTable.innerHTML = `
+                    <tr>
+                        <td colspan="6">
+                            <div class="no-tasks">
+                                <div class="no-tasks-icon">📝</div>
+                                <p>אין משימות במערכת</p>
+                                <a href="task-editor.html" class="btn btn-primary">צור משימה ראשונה</a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tasksTable.innerHTML = tasks.map(task => `
+                <tr>
+                    <td>
+                        <div class="task-title">${task.title}</div>
+                        ${task.description ? `<div class="task-description">${task.description}</div>` : ''}
+                        <div class="task-meta">
+                            ${task.estimated_duration ? `<span>⏱️ ${task.estimated_duration} דקות</span>` : ''}
+                            ${task.form_title ? `<span>📋 ${task.form_title}</span>` : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-type">${getTaskTypeText(task.task_type)}</span>
+                    </td>
+                    <td>
+                        <strong>${task.points || 0}</strong> נקודות
+                    </td>
+                    <td>
+                        ${task.assigned_count || 0} תלמידים<br>
+                        <small style="color: #666;">${task.completed_count || 0} הושלמו</small>
+                    </td>
+                    <td>
+                        <span class="badge ${task.is_active ? 'badge-active' : 'badge-inactive'}">
+                            ${task.is_active ? 'פעיל' : 'לא פעיל'}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <a href="task-editor.html?id=${task.id}" class="btn btn-secondary btn-sm">ערוך</a>
+                            <button onclick="deleteTask(${task.id})" class="btn btn-danger btn-sm">מחק</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function filterTasks() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allTasks.filter(task =>
+                task.title.toLowerCase().includes(search) ||
+                (task.description && task.description.toLowerCase().includes(search))
+            );
+            renderTasks(filtered);
+        }
+
+        function getTaskTypeText(type) {
+            const types = {
+                'assignment': 'מטלה',
+                'reading': 'קריאה',
+                'form': 'טופס',
+                'quiz': 'בחן',
+                'video': 'וידאו'
+            };
+            return types[type] || type;
+        }
+
+        async function deleteTask(taskId) {
+            if (!confirm('האם אתה בטוח שברצונך למחוק משימה זו? פעולה זו אינה הפיכה.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'delete_task',
+                        task_id: taskId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('המשימה נמחקה בהצלחה');
+                    await loadTasks(); // Reload list
+                } else {
+                    alert('שגיאה: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                alert('שגיאה במחיקת המשימה');
+            }
+        }
+    </script>
+</body>
+</html>
