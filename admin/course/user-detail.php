@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>פרטי תלמיד</title>
+    <link rel="stylesheet" href="../admin.css">
+</head>
+<body class="admin-body">
+    <?php
+        $activePage = 'students';
+        $basePath = '../';
+        include __DIR__ . '/../components/sidebar.php';
+    ?>
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <div class="admin-container">
+            <a href="index.php" class="back-link">← חזרה לרשימת התלמידים</a>
+
+        <!-- Loading State -->
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>טוען נתונים...</p>
+        </div>
+
+        <!-- User Detail Content -->
+        <div id="userContent" style="display: none;">
+            <!-- User Header -->
+            <div class="user-header-card">
+                <div class="user-header-content">
+                    <div style="display: flex; align-items: center; flex: 1;">
+                        <div class="user-avatar-large" id="userAvatar">??</div>
+                        <div class="user-header-info">
+                            <h1 id="userName">תלמיד</h1>
+                            <div class="user-header-meta">
+                                <span id="userTz">ת.ז.: -</span>
+                                <span id="userLastLogin">כניסה אחרונה: -</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-white" onclick="assignNewTask()">הוספת משימה חדשה</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalTasks">0</div>
+                    <div class="stat-label">סך המשימות</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="completedTasks">0</div>
+                    <div class="stat-label">הושלמו</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="pendingTasks">0</div>
+                    <div class="stat-label">ממתינות</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="reviewTasks">0</div>
+                    <div class="stat-label">לבדיקה</div>
+                </div>
+            </div>
+
+            <!-- Progress Overview -->
+            <div class="progress-overview">
+                <h2>התקדמות כללית</h2>
+                <div class="progress-bar-large">
+                    <div class="progress-bar-fill-large" id="progressBar" style="width: 0%">0%</div>
+                </div>
+            </div>
+
+            <!-- Tasks Section -->
+            <div class="tasks-section">
+                <h2>
+                    <span>משימות התלמיד</span>
+                    <button class="btn btn-white" onclick="assignNewTask()">+ הוספת משימה</button>
+                </h2>
+                <div id="tasksList"></div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <script>
+        // Mobile Menu Toggle
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('../auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'check' })
+                });
+
+                const data = await response.json();
+                if (!data.authenticated) {
+                    window.location.href = '../index.php';
+                    return;
+                }
+
+                document.getElementById('adminName').textContent = data.admin.full_name || data.admin.username;
+            } catch (error) {
+                console.error('Error checking auth:', error);
+                window.location.href = '../index.php';
+            }
+        }
+
+        function logout() {
+            fetch('../auth.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ action: 'logout' })
+            }).then(() => {
+                window.location.href = '../index.php';
+            });
+        }
+    </script>
+
+    <script>
+        // Mobile Menu Toggle
+
+        let userId = null;
+        let userData = null;
+        let userTasks = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            userId = urlParams.get('id');
+
+            if (!userId) {
+                alert('חסר מזהה משתמש');
+                window.location.href = 'index.php';
+                return;
+            }
+
+            loadUserData();
+        });
+
+        async function loadUserData() {
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'get_user_detail',
+                        user_id: userId
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load user data');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    userData = data.user;
+                    userTasks = data.tasks;
+                    renderUserDetail();
+                } else {
+                    throw new Error(data.message || 'Failed to load user data');
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                document.getElementById('loading').innerHTML = `
+                    <p style="color: red;">שגיאה בטעינת הנתונים</p>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+
+        function renderUserDetail() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('userContent').style.display = 'block';
+
+            // User header
+            const initials = userData.tz ? userData.tz.substring(0, 2) : '??';
+            document.getElementById('userAvatar').textContent = initials;
+            document.getElementById('userName').textContent = userData.tz || 'תלמיד';
+            document.getElementById('userTz').textContent = `ת.ז.: ${userData.tz}`;
+            if (userData.last_login) {
+                const lastLogin = new Date(userData.last_login).toLocaleDateString('he-IL');
+                document.getElementById('userLastLogin').textContent = `כניסה אחרונה: ${lastLogin}`;
+            }
+
+            // Stats
+            const total = userTasks.length;
+            const completed = userTasks.filter(t => t.status === 'completed' || t.status === 'approved').length;
+            const pending = userTasks.filter(t => t.status === 'pending').length;
+            const review = userTasks.filter(t => t.status === 'needs_review').length;
+            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            document.getElementById('totalTasks').textContent = total;
+            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('pendingTasks').textContent = pending;
+            document.getElementById('reviewTasks').textContent = review;
+
+            // Progress bar
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = percentage + '%';
+
+            // Render tasks
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const tasksList = document.getElementById('tasksList');
+
+            if (userTasks.length === 0) {
+                tasksList.innerHTML = `
+                    <div class="no-tasks">
+                        <p>אין משימות שהוקצו לתלמיד זה</p>
+                        <button class="btn btn-primary" onclick="assignNewTask()">הוספת משימה ראשונה</button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort: needs_review first, then by sequence
+            const sortedTasks = [...userTasks].sort((a, b) => {
+                if (a.status === 'needs_review' && b.status !== 'needs_review') return -1;
+                if (a.status !== 'needs_review' && b.status === 'needs_review') return 1;
+                return (a.sequence_order || 0) - (b.sequence_order || 0);
+            });
+
+            tasksList.innerHTML = sortedTasks.map(task => {
+                const statusText = getStatusText(task.status);
+                const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString('he-IL') : null;
+                const needsReview = task.status === 'needs_review';
+
+                return `
+                    <div class="task-item ${task.status.replace('_', '-')}">
+                        <div class="task-item-header">
+                            <span class="task-item-title">${task.title}</span>
+                            <span class="task-status-badge ${task.status.replace('_', '-')}">${statusText}</span>
+                        </div>
+                        ${task.description ? `<p style="font-size: 13px; color: #666; margin: 10px 0;">${task.description}</p>` : ''}
+                        <div class="task-item-meta">
+                            ${task.estimated_duration ? `<span>⏱️ ${task.estimated_duration} דקות</span>` : ''}
+                            ${task.points ? `<span>⭐ ${task.points} נקודות</span>` : ''}
+                            ${dueDate ? `<span>📅 ${dueDate}</span>` : ''}
+                        </div>
+                        <div class="task-actions">
+                            ${needsReview ? `
+                                <button class="task-action-btn approve" onclick="reviewTask(${task.id}, 'approved')">✓ אישור</button>
+                                <button class="task-action-btn reject" onclick="toggleReviewSection(${task.id})">✗ דחייה</button>
+                            ` : ''}
+                            <button class="task-action-btn view" onclick="viewTaskResponses(${task.id})">צפייה בתשובות</button>
+                        </div>
+                        <div class="review-section" id="review-${task.id}">
+                            <textarea id="review-notes-${task.id}" placeholder="הערות לתלמיד..." rows="3"></textarea>
+                            <div class="review-actions">
+                                <button class="task-action-btn reject" onclick="reviewTask(${task.id}, 'rejected')">שלח דחייה</button>
+                                <button class="task-action-btn view" onclick="toggleReviewSection(${task.id})">ביטול</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function toggleReviewSection(taskId) {
+            const section = document.getElementById(`review-${taskId}`);
+            section.classList.toggle('active');
+        }
+
+        async function reviewTask(userTaskId, newStatus) {
+            let reviewNotes = '';
+            if (newStatus === 'rejected') {
+                reviewNotes = document.getElementById(`review-notes-${userTaskId}`).value;
+                if (!reviewNotes.trim()) {
+                    alert('אנא הוסף הערות לדחייה');
+                    return;
+                }
+            }
+
+            if (!confirm(`האם אתה בטוח שברצונך ${newStatus === 'approved' ? 'לאשר' : 'לדחות'} את המשימה?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'review_task',
+                        user_task_id: userTaskId,
+                        status: newStatus,
+                        review_notes: reviewNotes
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('הסטטוס עודכן בהצלחה');
+                    await loadUserData(); // Reload data
+                } else {
+                    alert('שגיאה: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error reviewing task:', error);
+                alert('שגיאה בעדכון הסטטוס');
+            }
+        }
+
+        function viewTaskResponses(userTaskId) {
+            // Find the task to get form_id if exists
+            const task = userTasks.find(t => t.id === userTaskId);
+            if (task && task.form_id) {
+                window.open(`../responses/index.php?user_id=${userId}&form_id=${task.form_id}`, '_blank');
+            } else {
+                alert('אין טופס מקושר למשימה זו');
+            }
+        }
+
+        function assignNewTask() {
+            window.location.href = `assign-task.html?user_id=${userId}`;
+        }
+
+        function getStatusText(status) {
+            const statusMap = {
+                'pending': 'ממתינה',
+                'in_progress': 'בתהליך',
+                'completed': 'הושלמה',
+                'needs_review': 'לבדיקה',
+                'approved': 'אושרה',
+                'rejected': 'נדחתה'
+            };
+            return statusMap[status] || status;
+        }
+    </script>
+
+    <script src="../admin.js"></script>
+    <script src="../components/mobile-menu.js"></script>
+</body>
+</html>

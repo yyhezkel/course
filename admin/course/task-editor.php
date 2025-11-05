@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>עריכת משימה - ניהול קורס</title>
+    <link rel="stylesheet" href="../admin.css">
+</head>
+<body class="admin-body">
+    <?php
+        $activePage = 'tasks';
+        $basePath = '../';
+        include __DIR__ . '/../components/sidebar.php';
+    ?>
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <div class="admin-container">
+            <div class="editor-container">
+            <!-- Header -->
+            <div class="page-header">
+                <div>
+                    <h1 id="pageTitle">משימה חדשה</h1>
+                    <p>צור או ערוך משימה לתלמידי הקורס</p>
+                </div>
+                <a href="tasks.php" class="btn btn-secondary">חזרה לספרייה</a>
+            </div>
+
+            <!-- Alert Messages -->
+            <div id="alertMessage" style="display: none;"></div>
+
+            <!-- Loading State -->
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>טוען נתונים...</p>
+            </div>
+
+            <!-- Editor Form -->
+            <form id="taskForm" onsubmit="saveTask(event)">
+                <!-- Basic Information -->
+                <div class="editor-card">
+                    <h3>מידע בסיסי</h3>
+
+                    <div class="form-group">
+                        <label class="form-label required" for="taskTitle">שם המשימה</label>
+                        <input type="text" id="taskTitle" class="form-control" required placeholder="לדוגמה: מילוי טופס קבלה">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="taskDescription">תיאור</label>
+                        <textarea id="taskDescription" class="form-control" placeholder="תיאור קצר של המשימה"></textarea>
+                        <div class="form-help">תיאור קצר שיופיע בכרטיס המשימה</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="taskInstructions">הוראות מפורטות</label>
+                        <textarea id="taskInstructions" class="form-control" placeholder="הוראות מפורטות לתלמיד"></textarea>
+                        <div class="form-help">הוראות מפורטות שיופיעו בדף המשימה</div>
+                    </div>
+                </div>
+
+                <!-- Task Settings -->
+                <div class="editor-card">
+                    <h3>הגדרות משימה</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label required" for="taskType">סוג משימה</label>
+                            <select id="taskType" class="form-control" required>
+                                <option value="assignment">מטלה</option>
+                                <option value="reading">קריאה</option>
+                                <option value="form">טופס</option>
+                                <option value="quiz">בחן</option>
+                                <option value="video">וידאו</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="estimatedDuration">משך משוער (דקות)</label>
+                            <input type="number" id="estimatedDuration" class="form-control" placeholder="30" min="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="taskPoints">נקודות</label>
+                            <input type="number" id="taskPoints" class="form-control" value="0" min="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="sequenceOrder">סדר בקורס</label>
+                            <input type="number" id="sequenceOrder" class="form-control" value="0" min="0">
+                            <div class="form-help">סדר הופעה בקורס</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Link -->
+                <div class="editor-card">
+                    <h3>קישור לטופס</h3>
+
+                    <div class="form-group">
+                        <label class="form-label" for="formId">טופס מקושר</label>
+                        <select id="formId" class="form-control">
+                            <option value="">אין טופס מקושר</option>
+                        </select>
+                        <div class="form-help">בחר טופס אם המשימה כוללת מילוי טופס</div>
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="editor-card">
+                    <h3>סטטוס</h3>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="isActive" checked style="margin-left: 8px;">
+                            משימה פעילה
+                        </label>
+                        <div class="form-help">משימות לא פעילות לא יוצגו לתלמידים</div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="button-group">
+                    <button type="submit" class="btn btn-success btn-block">שמור משימה</button>
+                    <a href="tasks.php" class="btn btn-secondary">ביטול</a>
+                </div>
+            </form>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <script>
+        // Mobile Menu Toggle
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('../auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'check' })
+                });
+
+                const data = await response.json();
+                if (!data.authenticated) {
+                    window.location.href = '../index.php';
+                    return;
+                }
+
+                document.getElementById('adminName').textContent = data.admin.full_name || data.admin.username;
+            } catch (error) {
+                console.error('Error checking auth:', error);
+                window.location.href = '../index.php';
+            }
+        }
+
+        function logout() {
+            fetch('../auth.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ action: 'logout' })
+            }).then(() => {
+                window.location.href = '../index.php';
+            });
+        }
+    </script>
+
+    <script>
+        // Mobile Menu Toggle
+
+        let taskId = null;
+        let isEditMode = false;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+
+            // Check if editing existing task
+            const urlParams = new URLSearchParams(window.location.search);
+            taskId = urlParams.get('id');
+
+            if (taskId) {
+                isEditMode = true;
+                document.getElementById('pageTitle').textContent = 'עריכת משימה';
+                await loadTask(taskId);
+            }
+
+            // Load available forms
+            await loadForms();
+        });
+
+        async function loadForms() {
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'list_forms' })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.forms) {
+                    const formSelect = document.getElementById('formId');
+                    data.forms.forEach(form => {
+                        const option = document.createElement('option');
+                        option.value = form.id;
+                        option.textContent = form.title;
+                        formSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading forms:', error);
+            }
+        }
+
+        async function loadTask(id) {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('taskForm').style.display = 'none';
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'get_task',
+                        task_id: id
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.task) {
+                    const task = data.task;
+
+                    // Fill form with task data
+                    document.getElementById('taskTitle').value = task.title || '';
+                    document.getElementById('taskDescription').value = task.description || '';
+                    document.getElementById('taskInstructions').value = task.instructions || '';
+                    document.getElementById('taskType').value = task.task_type || 'assignment';
+                    document.getElementById('estimatedDuration').value = task.estimated_duration || '';
+                    document.getElementById('taskPoints').value = task.points || 0;
+                    document.getElementById('sequenceOrder').value = task.sequence_order || 0;
+                    document.getElementById('formId').value = task.form_id || '';
+                    document.getElementById('isActive').checked = task.is_active == 1;
+
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('taskForm').style.display = 'block';
+                } else {
+                    throw new Error(data.message || 'Failed to load task');
+                }
+            } catch (error) {
+                console.error('Error loading task:', error);
+                showAlert('שגיאה בטעינת המשימה: ' + error.message, 'error');
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        async function saveTask(event) {
+            event.preventDefault();
+
+            const taskData = {
+                title: document.getElementById('taskTitle').value,
+                description: document.getElementById('taskDescription').value,
+                instructions: document.getElementById('taskInstructions').value,
+                task_type: document.getElementById('taskType').value,
+                estimated_duration: document.getElementById('estimatedDuration').value || null,
+                points: parseInt(document.getElementById('taskPoints').value) || 0,
+                sequence_order: parseInt(document.getElementById('sequenceOrder').value) || 0,
+                form_id: document.getElementById('formId').value || null,
+                is_active: document.getElementById('isActive').checked ? 1 : 0
+            };
+
+            if (isEditMode) {
+                taskData.task_id = taskId;
+            }
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: isEditMode ? 'update_task' : 'create_task',
+                        ...taskData
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert(isEditMode ? 'המשימה עודכנה בהצלחה!' : 'המשימה נוצרה בהצלחה!', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'tasks.php';
+                    }, 1500);
+                } else {
+                    showAlert('שגיאה: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error saving task:', error);
+                showAlert('שגיאה בשמירת המשימה', 'error');
+            }
+        }
+
+        function showAlert(message, type) {
+            const alertDiv = document.getElementById('alertMessage');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            alertDiv.style.display = 'block';
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                alertDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+
+    <script src="../admin.js"></script>
+    <script src="../components/mobile-menu.js"></script>
+</body>
+</html>

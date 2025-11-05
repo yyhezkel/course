@@ -4,223 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ניהול תשובות - מערכת ניהול</title>
-    <link rel="stylesheet" href="../../style.css?ver=2.0.1">
-    <link rel="stylesheet" href="../admin.css?ver=2.0.1">
-    <style>
-        .responses-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .filters-section {
-            background: var(--white);
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: var(--shadow-sm);
-            margin-bottom: 2rem;
-        }
-
-        .filters-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .filter-label {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--gray-700);
-        }
-
-        .filter-actions {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .responses-table {
-            background: var(--white);
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .responses-table table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .responses-table thead {
-            background: var(--gray-50);
-            border-bottom: 2px solid var(--gray-200);
-        }
-
-        .responses-table th {
-            text-align: right;
-            padding: 1rem;
-            font-weight: 600;
-            color: var(--gray-700);
-            font-size: 0.875rem;
-        }
-
-        .responses-table td {
-            padding: 1rem;
-            border-bottom: 1px solid var(--gray-100);
-            color: var(--gray-900);
-        }
-
-        .responses-table tbody tr:hover {
-            background: var(--gray-50);
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .status-complete {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .status-partial {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .status-none {
-            background: #e5e7eb;
-            color: #374151;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .btn-sm {
-            font-size: 0.8rem;
-            padding: 0.4rem 0.8rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--gray-400);
-        }
-
-        .empty-state-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-
-        .stats-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: var(--white);
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-label {
-            font-size: 0.875rem;
-            color: var(--gray-600);
-        }
-    </style>
+    <link rel="stylesheet" href="../../style.css">
+    <link rel="stylesheet" href="../admin.css">
 </head>
 <body class="admin-body">
-    <!-- Mobile Menu Toggle -->
-    <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileMenu()">☰</button>
-
-    <!-- Sidebar Overlay -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileMenu()"></div>
-
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="sidebar-logo">👨‍💼</div>
-            <h2>לוח ניהול</h2>
-            <p class="admin-name" id="admin-name">טוען...</p>
-        </div>
-
-        <nav class="sidebar-nav">
-            <a href="../dashboard.html" class="nav-item">
-                <span class="nav-icon">📊</span>
-                <span>לוח בקרה</span>
-            </a>
-
-            <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600; margin-top: 10px;">ניהול קורס</div>
-
-            <a href="../course/index.html" class="nav-item">
-                <span class="nav-icon">🎓</span>
-                <span>תלמידים</span>
-            </a>
-            <a href="../course/tasks.html" class="nav-item">
-                <span class="nav-icon">📝</span>
-                <span>ספריית משימות</span>
-            </a>
-            <a href="../course/assign.html" class="nav-item">
-                <span class="nav-icon">📤</span>
-                <span>הקצאת משימות</span>
-            </a>
-            <a href="../course/materials.html" class="nav-item">
-                <span class="nav-icon">📚</span>
-                <span>חומרי לימוד</span>
-            </a>
-            <a href="../course/reports.html" class="nav-item">
-                <span class="nav-icon">📊</span>
-                <span>דוחות וניתוח</span>
-            </a>
-
-            <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600; margin-top: 20px;">ניהול טפסים</div>
-
-            <a href="../forms/" class="nav-item">
-                <span class="nav-icon">📋</span>
-                <span>בניית טפסים</span>
-            </a>
-            <a href="../questions/" class="nav-item">
-                <span class="nav-icon">❓</span>
-                <span>ספריית שאלות</span>
-            </a>
-            <a href="./" class="nav-item active">
-                <span class="nav-icon">📄</span>
-                <span>תשובות</span>
-            </a>
-        </nav>
-
-        <div class="sidebar-footer">
-            <button class="logout-btn" onclick="logout()">
-                <span>🚪</span>
-                <span>התנתק</span>
-            </button>
-        </div>
-    </aside>
+    <?php
+        $activePage = 'responses';
+        $basePath = '../';
+        include __DIR__ . '/../components/sidebar.php';
+    ?>
 
     <!-- Main Content -->
     <main class="main-content">
@@ -315,21 +107,6 @@
     </main>
 
         // Mobile Menu Toggle
-        function toggleMobileMenu() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-
-            sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
-
-            if (sidebar.classList.contains('active')) {
-                overlay.style.display = 'block';
-                setTimeout(() => overlay.classList.add('active'), 10);
-            } else {
-                overlay.classList.remove('active');
-                setTimeout(() => overlay.style.display = 'none', 300);
-            }
-        }
 
     <script src="../admin.js?ver=2.0.1"></script>
     <script>
@@ -655,26 +432,14 @@
         // Logout
         function logout() {
             if (confirm('האם אתה בטוח שברצונך להתנתק?')) {
-                window.location.href = '../index.html?action=logout';
+                window.location.href = '../index.php?action=logout';
             }
         }
         // Mobile Menu Toggle
-        function toggleMobileMenu() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-
-            sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
-
-            if (sidebar.classList.contains('active')) {
-                overlay.style.display = 'block';
-                setTimeout(() => overlay.classList.add('active'), 10);
-            } else {
-                overlay.classList.remove('active');
-                setTimeout(() => overlay.style.display = 'none', 300);
-            }
-        }
 
     </script>
+
+    <script src="../admin.js"></script>
+    <script src="../components/mobile-menu.js"></script>
 </body>
 </html>
