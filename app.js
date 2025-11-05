@@ -683,23 +683,66 @@ function updateProgress() {
 
 // ====== טיפול באירועים (Event Handlers) ======
 
+// Switch between login methods
+function switchLoginMethod(method) {
+    const tabId = document.getElementById('tab-id');
+    const tabUsername = document.getElementById('tab-username');
+    const methodId = document.getElementById('login-method-id');
+    const methodUsername = document.getElementById('login-method-username');
+
+    if (method === 'id') {
+        tabId.classList.add('active');
+        tabUsername.classList.remove('active');
+        methodId.classList.add('active');
+        methodUsername.classList.remove('active');
+    } else {
+        tabId.classList.remove('active');
+        tabUsername.classList.add('active');
+        methodId.classList.remove('active');
+        methodUsername.classList.add('active');
+    }
+}
+
 // 1. כניסה
 loginButton.addEventListener('click', async () => {
-    const tz = tzInput.value.trim();
     errorMessage.style.display = 'none';
 
-    // Validate: must be 7 or 9 digits
-    if ((tz.length !== 7 && tz.length !== 9) || isNaN(tz)) {
-        loginAttempts++;
-        displayError(`מספר זהוי לא תקין. הזן 7 או 9 ספרות. נותרו לך ${MAX_LOGIN_ATTEMPTS - loginAttempts} ניסיונות.`);
-        if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-            loginButton.disabled = true;
+    // Determine which login method is active
+    const methodId = document.getElementById('login-method-id');
+    const isIdMethod = methodId.classList.contains('active');
+
+    let loginData = {};
+
+    if (isIdMethod) {
+        // Personal number login
+        const tz = tzInput.value.trim();
+
+        // Validate: must be 7 or 9 digits
+        if ((tz.length !== 7 && tz.length !== 9) || isNaN(tz)) {
+            loginAttempts++;
+            displayError(`מספר זהוי לא תקין. הזן 7 או 9 ספרות. נותרו לך ${MAX_LOGIN_ATTEMPTS - loginAttempts} ניסיונות.`);
+            if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+                loginButton.disabled = true;
+            }
+            return;
         }
-        return;
+
+        loginData = { tz: tz };
+    } else {
+        // Username + password login
+        const username = document.getElementById('username-input').value.trim();
+        const password = document.getElementById('password-input').value;
+
+        if (!username || !password) {
+            displayError('נא למלא שם משתמש וסיסמה.');
+            return;
+        }
+
+        loginData = { username: username, password: password };
     }
-    
+
     // שליחת בקשה לשרת PHP
-    const result = await sendApiRequest('login', { tz: tz });
+    const result = await sendApiRequest('login', loginData);
 
     if (result.success) {
         console.log("אימות מוצלח!");

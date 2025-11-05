@@ -22,22 +22,59 @@
             <div class="card">
                 <div class="card-header">
                     <h2>ברוכים הבאים</h2>
-                    <p>אנא הזן את מספר הזיהוי שלך להמשך</p>
+                    <p>אנא התחבר להמשך</p>
                 </div>
 
                 <div class="card-body">
-                    <div class="input-group">
-                        <label for="tz-input" class="input-label">מספר זיהוי (ת.ז. או מספר אישי)</label>
-                        <input
-                            type="tel"
-                            id="tz-input"
-                            placeholder="הזן 7 או 9 ספרות"
-                            maxlength="9"
-                            pattern="[0-9]*"
-                            inputmode="numeric"
-                            class="input-field"
-                        >
-                        <div class="input-icon">👤</div>
+                    <!-- Login Method Tabs -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
+                        <button id="tab-id" class="login-tab active" onclick="switchLoginMethod('id')">
+                            מספר אישי
+                        </button>
+                        <button id="tab-username" class="login-tab" onclick="switchLoginMethod('username')">
+                            שם משתמש + סיסמה
+                        </button>
+                    </div>
+
+                    <!-- Personal Number Login (Default) -->
+                    <div id="login-method-id" class="login-method active">
+                        <div class="input-group">
+                            <label for="tz-input" class="input-label">מספר זיהוי (ת.ז. או מספר אישי)</label>
+                            <input
+                                type="tel"
+                                id="tz-input"
+                                placeholder="הזן 7 או 9 ספרות"
+                                maxlength="9"
+                                pattern="[0-9]*"
+                                inputmode="numeric"
+                                class="input-field"
+                            >
+                            <div class="input-icon">👤</div>
+                        </div>
+                    </div>
+
+                    <!-- Username + Password Login -->
+                    <div id="login-method-username" class="login-method" style="display: none;">
+                        <div class="input-group">
+                            <label for="username-input" class="input-label">שם משתמש</label>
+                            <input
+                                type="text"
+                                id="username-input"
+                                placeholder="שם המשתמש שלך"
+                                class="input-field"
+                            >
+                            <div class="input-icon">👤</div>
+                        </div>
+                        <div class="input-group" style="margin-top: 15px;">
+                            <label for="password-input" class="input-label">סיסמה</label>
+                            <input
+                                type="password"
+                                id="password-input"
+                                placeholder="הסיסמה שלך"
+                                class="input-field"
+                            >
+                            <div class="input-icon">🔒</div>
+                        </div>
                     </div>
 
                     <div id="error-message" class="alert alert-error" style="display:none;"></div>

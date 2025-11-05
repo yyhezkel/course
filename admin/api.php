@@ -2047,6 +2047,45 @@ if ($action === 'get_task_stats') {
 }
 
 // ============================================
+// MIGRATIONS
+// ============================================
+
+if ($action === 'run_migration') {
+    $migrationName = $input['migration'] ?? '';
+
+    if (empty($migrationName)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר שם migration']);
+        exit;
+    }
+
+    $migrationFile = __DIR__ . '/../migrate_' . $migrationName . '.php';
+
+    if (!file_exists($migrationFile)) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'קובץ migration לא נמצא']);
+        exit;
+    }
+
+    try {
+        // Capture output
+        ob_start();
+        include $migrationFile;
+        $output = ob_get_clean();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Migration הושלם בהצלחה',
+            'output' => $output
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
 // DEFAULT
 // ============================================
 

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הגדרות חשבון</title>
+    <link rel="stylesheet" href="user.css">
+    <style>
+        .settings-container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        .settings-section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .settings-section h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #1f2937;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .form-hint {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+            margin-right: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #3b82f6;
+        }
+
+        .current-value {
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #4b5563;
+            margin-bottom: 15px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="settings-container">
+        <a href="profile.html" class="back-link">← חזרה לפרופיל</a>
+
+        <h1>הגדרות חשבון</h1>
+        <p style="color: #6b7280; margin-bottom: 30px;">עדכן את פרטי החשבון שלך</p>
+
+        <div id="alertContainer"></div>
+
+        <!-- Username Section -->
+        <div class="settings-section">
+            <h2>שם משתמש</h2>
+
+            <div class="current-value" id="currentUsernameDisplay">
+                <strong>שם משתמש נוכחי:</strong> <span id="currentUsername">לא הוגדר</span>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>💡 טיפ:</strong> שם משתמש מאפשר לך להתחבר ללא צורך להזין מספר אישי בכל פעם.
+                בחר שם משתמש ייחודי שקל לזכור.
+            </div>
+
+            <form id="usernameForm" onsubmit="updateUsername(event)">
+                <div class="form-group">
+                    <label class="form-label">שם משתמש חדש</label>
+                    <input type="text" id="newUsername" class="form-input"
+                           pattern="[a-zA-Z0-9_]{3,20}"
+                           placeholder="לדוגמה: yossi123">
+                    <div class="form-hint">
+                        3-20 תווים, רק אותיות אנגליות, מספרים וקו תחתון (_)
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">עדכן שם משתמש</button>
+            </form>
+        </div>
+
+        <!-- Password Section -->
+        <div class="settings-section">
+            <h2>סיסמה</h2>
+
+            <div class="alert alert-info">
+                <strong>🔒 אבטחה:</strong> הגדר סיסמה חזקה להגנה על החשבון שלך.
+                לאחר הגדרת סיסמה, תוכל להתחבר עם שם משתמש וסיסמה.
+            </div>
+
+            <form id="passwordForm" onsubmit="updatePassword(event)">
+                <div class="form-group">
+                    <label class="form-label">סיסמה חדשה</label>
+                    <input type="password" id="newPassword" class="form-input"
+                           minlength="6" required
+                           placeholder="לפחות 6 תווים">
+                    <div class="form-hint">
+                        לפחות 6 תווים. מומלץ לשלב אותיות, מספרים וסימנים מיוחדים.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">אימות סיסמה</label>
+                    <input type="password" id="confirmPassword" class="form-input"
+                           minlength="6" required
+                           placeholder="הזן שוב את הסיסמה">
+                </div>
+
+                <button type="submit" class="btn btn-primary">עדכן סיסמה</button>
+            </form>
+        </div>
+
+        <!-- Personal Number Login Info -->
+        <div class="settings-section">
+            <h2>ℹ️ אפשרויות התחברות</h2>
+            <p>לאחר הגדרת שם משתמש וסיסמה, תוכל להתחבר בשתי דרכים:</p>
+            <ul style="line-height: 1.8;">
+                <li><strong>מספר אישי</strong> - המספר המזהה שלך (כפי שנרשמת במערכת)</li>
+                <li><strong>שם משתמש + סיסמה</strong> - הדרך החדשה שהגדרת</li>
+            </ul>
+            <p style="margin-top: 15px; color: #6b7280;">
+                שני האופנים יעבדו, כך שתוכל לבחור את הנוח לך יותר.
+            </p>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="profile.html" class="btn btn-secondary">חזרה לפרופיל</a>
+        </div>
+    </div>
+
+    <script>
+        let userData = null;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const authenticated = await checkSession();
+            if (!authenticated) {
+                window.location.href = 'index.html';
+                return;
+            }
+            await loadUserData();
+        });
+
+        async function checkSession() {
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'check_session' })
+                });
+                const data = await response.json();
+                return data.authenticated;
+            } catch (error) {
+                console.error('Session check error:', error);
+                return false;
+            }
+        }
+
+        async function loadUserData() {
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'get_user_info' })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load user data');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    userData = data.user;
+                    displayCurrentUsername();
+                } else {
+                    throw new Error(data.message || 'Failed to load user data');
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                showAlert('error', 'שגיאה בטעינת נתוני משתמש');
+            }
+        }
+
+        function displayCurrentUsername() {
+            const usernameDisplay = document.getElementById('currentUsername');
+            if (userData && userData.username) {
+                usernameDisplay.textContent = userData.username;
+            } else {
+                usernameDisplay.textContent = 'לא הוגדר - תוכל להגדיר אחד כעת';
+            }
+        }
+
+        async function updateUsername(event) {
+            event.preventDefault();
+
+            const newUsername = document.getElementById('newUsername').value.trim();
+
+            if (!newUsername) {
+                showAlert('error', 'נא להזין שם משתמש');
+                return;
+            }
+
+            // Validate username format
+            const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+            if (!usernameRegex.test(newUsername)) {
+                showAlert('error', 'שם משתמש לא תקין. השתמש רק באותיות אנגליות, מספרים וקו תחתון (_), 3-20 תווים');
+                return;
+            }
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'update_username',
+                        username: newUsername
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('success', '✅ שם המשתמש עודכן בהצלחה!');
+                    document.getElementById('newUsername').value = '';
+                    userData.username = newUsername;
+                    displayCurrentUsername();
+                } else {
+                    showAlert('error', data.message || 'שגיאה בעדכון שם משתמש');
+                }
+            } catch (error) {
+                console.error('Error updating username:', error);
+                showAlert('error', 'שגיאה בעדכון שם משתמש');
+            }
+        }
+
+        async function updatePassword(event) {
+            event.preventDefault();
+
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (!newPassword || !confirmPassword) {
+                showAlert('error', 'נא למלא את כל השדות');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showAlert('error', 'הסיסמאות אינן תואמות');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                showAlert('error', 'הסיסמה חייבת להכיל לפחות 6 תווים');
+                return;
+            }
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'update_password',
+                        password: newPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('success', '✅ הסיסמה עודכנה בהצלחה!');
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                } else {
+                    showAlert('error', data.message || 'שגיאה בעדכון סיסמה');
+                }
+            } catch (error) {
+                console.error('Error updating password:', error);
+                showAlert('error', 'שגיאה בעדכון סיסמה');
+            }
+        }
+
+        function showAlert(type, message) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+
+            alertContainer.innerHTML = `
+                <div class="alert ${alertClass}">
+                    ${message}
+                </div>
+            `;
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+
+            // Scroll to top to show alert
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
