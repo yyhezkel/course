@@ -1222,7 +1222,7 @@ if ($action === 'get_user_detail') {
 
     try {
         // Get user info
-        $stmt = $db->prepare("SELECT id, tz, is_blocked, last_login FROM users WHERE id = ?");
+        $stmt = $db->prepare("SELECT id, tz, full_name, is_blocked, is_active, last_login FROM users WHERE id = ?");
         $stmt->execute([$userId]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -1241,17 +1241,21 @@ if ($action === 'get_user_detail') {
                 ut.due_date,
                 ut.priority,
                 ut.admin_notes,
+                ut.feedback,
+                ut.submission_text,
+                ut.submission_file_path,
+                ut.submitted_at,
+                ut.reviewed_at,
+                ut.grade,
                 ct.title,
                 ct.description,
                 ct.task_type,
                 ct.estimated_duration,
                 ct.points,
                 ct.sequence_order,
-                ct.form_id,
-                tp.review_notes
+                ct.form_id
             FROM user_tasks ut
             JOIN course_tasks ct ON ut.task_id = ct.id
-            LEFT JOIN task_progress tp ON ut.id = tp.user_task_id
             WHERE ut.user_id = ?
             ORDER BY ct.sequence_order ASC
         ");
