@@ -353,6 +353,14 @@
                         body: formData
                     });
 
+                    // Check if response is JSON
+                    const contentType = uploadResponse.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        const text = await uploadResponse.text();
+                        console.error('Non-JSON response:', text);
+                        throw new Error('שגיאת שרת: התקבלה תשובה לא תקינה. נא לבדוק את לוג השרת.');
+                    }
+
                     const uploadData = await uploadResponse.json();
 
                     if (!uploadData.success) {

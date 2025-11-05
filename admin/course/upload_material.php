@@ -4,7 +4,13 @@
  * Handles file uploads for course materials
  */
 
+// Disable error output to prevent breaking JSON response
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
 session_start();
+
+header('Content-Type: application/json');
 
 // Check admin authentication
 if (!isset($_SESSION['admin_authenticated']) || $_SESSION['admin_authenticated'] !== true) {
@@ -13,9 +19,14 @@ if (!isset($_SESSION['admin_authenticated']) || $_SESSION['admin_authenticated']
     exit;
 }
 
-require_once __DIR__ . '/../../config.php';
-
-header('Content-Type: application/json');
+try {
+    require_once __DIR__ . '/../../config.php';
+} catch (Exception $e) {
+    http_response_code(500);
+    error_log("Config error in upload_material: " . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת הגדרות']);
+    exit;
+}
 
 // Check if file was uploaded
 if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
@@ -29,7 +40,12 @@ $uploadDir = __DIR__ . '/../../uploads/materials/';
 
 // Create upload directory if it doesn't exist
 if (!is_dir($uploadDir)) {
-    mkdir($uploadDir, 0755, true);
+    if (!mkdir($uploadDir, 0755, true)) {
+        http_response_code(500);
+        error_log("Failed to create upload directory: " . $uploadDir);
+        echo json_encode(['success' => false, 'message' => 'שגיאה ביצירת תיקיית העלאה']);
+        exit;
+    }
 }
 
 // Validate file size (max 50MB for course materials)
@@ -70,23 +86,71 @@ $allowedTypes = [
     'text/plain'
 ];
 
-$mimeType = mime_content_type($file['tmp_name']);
+// Get MIME type safely
+$mimeType = 'application/octet-stream'; // default
+if (function_exists('mime_content_type') && file_exists($file['tmp_name'])) {
+    $mimeType = mime_content_type($file['tmp_name']);
+} elseif (function_exists('finfo_file')) {
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+}
 
-if (!in_array($mimeType, $allowedTypes)) {
+// Also check by file extension as fallback
+$extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+$extensionToMime = [
+    'pdf' => 'application/pdf',
+    'doc' => 'application/msword',
+    'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls' => 'application/vnd.ms-excel',
+    'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt' => 'application/vnd.ms-powerpoint',
+    'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'jpg' => 'image/jpeg',
+    'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    'gif' => 'image/gif',
+    'webp' => 'image/webp',
+    'mp4' => 'video/mp4',
+    'webm' => 'video/webm',
+    'mov' => 'video/quicktime',
+    'mp3' => 'audio/mpeg',
+    'wav' => 'audio/wav',
+    'zip' => 'application/zip',
+    'rar' => 'application/x-rar-compressed',
+    'txt' => 'text/plain'
+];
+
+// Use extension-based MIME if detection failed
+if ($mimeType === 'application/octet-stream' && isset($extensionToMime[$extension])) {
+    $mimeType = $extensionToMime[$extension];
+}
+
+if (!in_array($mimeType, $allowedTypes) && !isset($extensionToMime[$extension])) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'סוג קובץ לא נתמך']);
+    error_log("Unsupported file type: " . $mimeType . " (extension: " . $extension . ")");
+    echo json_encode(['success' => false, 'message' => 'סוג קובץ לא נתמך: ' . $extension]);
     exit;
 }
 
 // Generate unique filename
-$extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-$uniqueFilename = uniqid('material_', true) . '.' . $extension;
+$fileExtension = pathinfo($file['name'], PATHINFO_EXTENSION);
+$uniqueFilename = uniqid('material_', true) . '.' . $fileExtension;
 $uploadPath = $uploadDir . $uniqueFilename;
 
 // Move uploaded file
 if (!move_uploaded_file($file['tmp_name'], $uploadPath)) {
     http_response_code(500);
+    error_log("Failed to move uploaded file to: " . $uploadPath);
     echo json_encode(['success' => false, 'message' => 'שגיאה בשמירת הקובץ']);
+    exit;
+}
+
+// Verify file was saved
+if (!file_exists($uploadPath)) {
+    http_response_code(500);
+    error_log("File not found after upload: " . $uploadPath);
+    echo json_encode(['success' => false, 'message' => 'שגיאה: הקובץ לא נמצא לאחר העלאה']);
     exit;
 }
 
