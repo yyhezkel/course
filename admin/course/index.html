@@ -7,8 +7,14 @@
     <link rel="stylesheet" href="../admin.css">
 </head>
 <body class="admin-body">
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileMenu()">☰</button>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileMenu()"></div>
+
     <!-- Sidebar -->
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-logo">🎓</div>
             <h2>לוח ניהול</h2>
@@ -99,6 +105,23 @@
     </div>
 
     <script>
+        // Mobile Menu Toggle
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+
+            if (sidebar.classList.contains('active')) {
+                overlay.style.display = 'block';
+                setTimeout(() => overlay.classList.add('active'), 10);
+            } else {
+                overlay.classList.remove('active');
+                setTimeout(() => overlay.style.display = 'none', 300);
+            }
+        }
+
         let allUsers = [];
         let currentFilter = 'all';
 
