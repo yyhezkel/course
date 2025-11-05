@@ -27,6 +27,91 @@ $action = $input['action'] ?? $_GET['action'] ?? '';
 $db = getDbConnection();
 $userIP = $_SERVER['REMOTE_ADDR'];
 
+// Initialize course tables if they don't exist
+function initializeCourseTables($db) {
+    try {
+        // Check if course_tasks table exists
+        $result = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='course_tasks'");
+        if (!$result->fetch()) {
+            // Create course_tasks table
+            $db->exec("
+                CREATE TABLE course_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    instructions TEXT,
+                    task_type TEXT DEFAULT 'assignment',
+                    form_id INTEGER,
+                    estimated_duration INTEGER,
+                    points INTEGER DEFAULT 0,
+                    is_active INTEGER DEFAULT 1,
+                    sequence_order INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    created_by INTEGER,
+                    FOREIGN KEY (form_id) REFERENCES forms(id) ON DELETE SET NULL
+                )
+            ");
+
+            // Create user_tasks table
+            $db->exec("
+                CREATE TABLE user_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    task_id INTEGER NOT NULL,
+                    assigned_by INTEGER,
+                    assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    due_date DATETIME,
+                    status TEXT DEFAULT 'pending',
+                    priority TEXT DEFAULT 'normal',
+                    progress_percentage INTEGER DEFAULT 0,
+                    started_at DATETIME,
+                    completed_at DATETIME,
+                    submitted_at DATETIME,
+                    reviewed_at DATETIME,
+                    reviewed_by INTEGER,
+                    admin_notes TEXT,
+                    student_notes TEXT,
+                    submission_text TEXT,
+                    submission_file_path TEXT,
+                    grade REAL,
+                    feedback TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (task_id) REFERENCES course_tasks(id) ON DELETE CASCADE,
+                    UNIQUE(user_id, task_id)
+                )
+            ");
+
+            // Create course_materials table
+            $db->exec("
+                CREATE TABLE course_materials (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id INTEGER,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    material_type TEXT DEFAULT 'document',
+                    file_path TEXT,
+                    external_url TEXT,
+                    content_text TEXT,
+                    display_order INTEGER DEFAULT 0,
+                    is_required INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    created_by INTEGER,
+                    FOREIGN KEY (task_id) REFERENCES course_tasks(id) ON DELETE CASCADE
+                )
+            ");
+        }
+    } catch (Exception $e) {
+        // Tables might already exist, ignore error
+    }
+}
+
+// Initialize tables on dashboard or task-related requests
+if ($action === 'get_dashboard' || strpos($action, 'task') !== false || strpos($action, 'material') !== false) {
+    initializeCourseTables($db);
+}
+
 // הסרנו את בדיקת המכשיר הנייד - המערכת פתוחה לכולם
 // העיצוב מותאם למובייל אבל ניתן לגשת גם ממחשב
 
