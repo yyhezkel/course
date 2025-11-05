@@ -5,189 +5,65 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ספריית משימות - ניהול קורס</title>
     <link rel="stylesheet" href="../admin.css">
-    <style>
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            text-decoration: none;
-            display: inline-block;
-            transition: background 0.3s;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5568d3;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-
-        .tasks-table {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .table th {
-            background: #f8f9fa;
-            padding: 15px;
-            text-align: right;
-            font-weight: 600;
-            color: #333;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .table td {
-            padding: 15px;
-            border-bottom: 1px solid #f0f0f0;
-            vertical-align: top;
-        }
-
-        .table tr:hover {
-            background: #f8f9fa;
-        }
-
-        .task-title {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
-        }
-
-        .task-description {
-            font-size: 13px;
-            color: #666;
-            max-width: 300px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .task-meta {
-            display: flex;
-            gap: 15px;
-            font-size: 12px;
-            color: #999;
-            margin-top: 5px;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .badge-active {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .badge-inactive {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .badge-type {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 5px;
-        }
-
-        .no-tasks {
-            text-align: center;
-            padding: 60px 20px;
-            color: #999;
-        }
-
-        .no-tasks-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-        }
-
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .search-filter {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        .search-filter input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-    </style>
 </head>
-<body>
-    <div class="admin-container">
+<body class="admin-body">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">🎓</div>
+            <h2>לוח ניהול</h2>
+            <p class="admin-name" id="adminName">מנהל</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600;">ניהול קורס</div>
+            <a href="./index.html" class="nav-item">
+                <span class="nav-icon">🎓</span>
+                <span>תלמידי הקורס</span>
+            </a>
+            <a href="./tasks.html" class="nav-item active">
+                <span class="nav-icon">📝</span>
+                <span>ספריית משימות</span>
+            </a>
+            <a href="./assign.html" class="nav-item">
+                <span class="nav-icon">📤</span>
+                <span>הקצאת משימות</span>
+            </a>
+            <a href="./materials.html" class="nav-item">
+                <span class="nav-icon">📚</span>
+                <span>חומרי לימוד</span>
+            </a>
+            <a href="./reports.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>דוחות וניתוח</span>
+            </a>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #9ca3af; text-transform: uppercase; font-weight: 600; margin-top: 20px;">ניהול טפסים</div>
+            <a href="../forms/index.html" class="nav-item">
+                <span class="nav-icon">📋</span>
+                <span>טפסים</span>
+            </a>
+            <a href="../users/index.html" class="nav-item">
+                <span class="nav-icon">👥</span>
+                <span>משתמשים</span>
+            </a>
+            <a href="../responses/index.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>תשובות</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <button class="logout-btn" onclick="logout()">
+                <span>🚪</span>
+                <span>התנתק</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <div class="admin-container">
         <!-- Header -->
         <div class="page-header">
             <div>
@@ -229,12 +105,51 @@
                 </table>
             </div>
         </div>
+        </div>
     </div>
+
+    <script>
+        async function checkAuth() {
+            try {
+                const response = await fetch('../auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ action: 'check' })
+                });
+
+                const data = await response.json();
+                if (!data.authenticated) {
+                    window.location.href = '../index.html';
+                    return;
+                }
+
+                document.getElementById('adminName').textContent = data.admin.full_name || data.admin.username;
+            } catch (error) {
+                console.error('Error checking auth:', error);
+                window.location.href = '../index.html';
+            }
+        }
+
+        function logout() {
+            fetch('../auth.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ action: 'logout' })
+            }).then(() => {
+                window.location.href = '../index.html';
+            });
+        }
+    </script>
 
     <script>
         let allTasks = [];
 
-        document.addEventListener('DOMContentLoaded', loadTasks);
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+            loadTasks();
+        });
 
         async function loadTasks() {
             try {

@@ -178,8 +178,10 @@ if ($action === 'create_user') {
         $idType = $input['id_type'] ?? 'tz'; // 'tz' or 'personal_number'
         $fullName = $input['full_name'] ?? '';
         $password = $input['password'] ?? '';
-        $userType = $input['user_type'] ?? 'regular'; // 'admin' or 'regular'
         $formId = $input['form_id'] ?? null;
+
+        // NOTE: This endpoint creates REGULAR USERS (students) only.
+        // Admin users are managed separately via admin_users table.
 
         // Validate ID number
         if (empty($tz)) {
@@ -204,13 +206,6 @@ if ($action === 'create_user') {
             exit;
         }
 
-        // For admin users, password is required
-        if ($userType === 'admin' && empty($password)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'סיסמה נדרשת למשתמש מנהל']);
-            exit;
-        }
-
         // Check if user already exists
         $stmt = $db->prepare("SELECT id FROM users WHERE tz = ?");
         $stmt->execute([$tz]);
@@ -226,13 +221,11 @@ if ($action === 'create_user') {
             $passwordHash = password_hash($password, PASSWORD_BCRYPT);
         }
 
-        $role = ($userType === 'admin') ? 'admin' : 'user';
-
         $stmt = $db->prepare("
-            INSERT INTO users (tz, id_type, password_hash, full_name, role, is_active, created_at)
-            VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+            INSERT INTO users (tz, id_type, password_hash, full_name, is_active, created_at)
+            VALUES (?, ?, ?, ?, 1, datetime('now'))
         ");
-        $stmt->execute([$tz, $idType, $passwordHash, $fullName, $role]);
+        $stmt->execute([$tz, $idType, $passwordHash, $fullName]);
         $userId = $db->lastInsertId();
 
         // Assign form if provided
@@ -262,8 +255,10 @@ if ($action === 'create_user') {
 if ($action === 'bulk_import_users') {
     try {
         $csvData = $input['csv_data'] ?? '';
-        $userType = $input['user_type'] ?? 'regular';
         $formId = $input['form_id'] ?? null;
+
+        // NOTE: This endpoint creates REGULAR USERS (students) only.
+        // Admin users are managed separately via admin_users table.
 
         if (empty($csvData)) {
             http_response_code(400);
@@ -314,25 +309,17 @@ if ($action === 'bulk_import_users') {
                 continue;
             }
 
-            // For admin users, password is required
-            if ($userType === 'admin' && empty($password)) {
-                $errors[] = "שורה " . ($lineNum + 1) . ": סיסמה נדרשת למשתמש מנהל";
-                continue;
-            }
-
             // Create user
             $passwordHash = null;
             if (!empty($password)) {
                 $passwordHash = password_hash($password, PASSWORD_BCRYPT);
             }
 
-            $role = ($userType === 'admin') ? 'admin' : 'user';
-
             $stmt = $db->prepare("
-                INSERT INTO users (tz, id_type, password_hash, full_name, role, is_active, created_at)
-                VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+                INSERT INTO users (tz, id_type, password_hash, full_name, is_active, created_at)
+                VALUES (?, ?, ?, ?, 1, datetime('now'))
             ");
-            $stmt->execute([$tz, $idType, $passwordHash, $fullName, $role]);
+            $stmt->execute([$tz, $idType, $passwordHash, $fullName]);
             $userId = $db->lastInsertId();
 
             // Assign form if provided
@@ -1432,6 +1419,55 @@ if ($action === 'update_task') {
     exit;
 }
 
+// Get single task for editing
+if ($action === 'get_task') {
+    $taskId = $input['task_id'] ?? '';
+
+    if (empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT * FROM course_tasks WHERE id = ?");
+        $stmt->execute([$taskId]);
+        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$task) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'המשימה לא נמצאה']);
+            exit;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'task' => $task
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// List all forms
+if ($action === 'list_forms') {
+    try {
+        $stmt = $db->query("SELECT id, title FROM forms WHERE is_active = 1 ORDER BY created_at DESC");
+        $forms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'forms' => $forms
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 // Delete task
 if ($action === 'delete_task') {
     $taskId = $input['task_id'] ?? '';
@@ -1537,6 +1573,373 @@ if ($action === 'bulk_assign_task') {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'שגיאה בהקצאה המרובה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
+// MATERIALS MANAGEMENT
+// ============================================
+
+// Get all materials
+if ($action === 'get_all_materials') {
+    try {
+        $stmt = $db->query("
+            SELECT m.*, t.title as task_title
+            FROM course_materials m
+            LEFT JOIN course_tasks t ON m.task_id = t.id
+            ORDER BY m.created_at DESC
+        ");
+        $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'materials' => $materials
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Get materials by task
+if ($action === 'get_materials_by_task') {
+    $taskId = $input['task_id'] ?? '';
+
+    if (empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT * FROM course_materials
+            WHERE task_id = ?
+            ORDER BY display_order, created_at
+        ");
+        $stmt->execute([$taskId]);
+        $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'materials' => $materials
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Create material (metadata only, file upload handled separately)
+if ($action === 'create_material') {
+    $taskId = $input['task_id'] ?? null;
+    $title = $input['title'] ?? '';
+    $description = $input['description'] ?? '';
+    $materialType = $input['material_type'] ?? '';
+    $filePath = $input['file_path'] ?? '';
+    $externalUrl = $input['external_url'] ?? '';
+    $contentText = $input['content_text'] ?? '';
+    $displayOrder = $input['display_order'] ?? 0;
+    $isRequired = $input['is_required'] ?? 0;
+
+    if (empty($title) || empty($materialType)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסרים שדות חובה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO course_materials
+            (task_id, title, description, material_type, file_path, external_url, content_text, display_order, is_required, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        ");
+        $stmt->execute([
+            $taskId,
+            $title,
+            $description,
+            $materialType,
+            $filePath,
+            $externalUrl,
+            $contentText,
+            $displayOrder,
+            $isRequired,
+            $_SESSION['admin_user_id']
+        ]);
+
+        $materialId = $db->lastInsertId();
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'חומר נוסף בהצלחה',
+            'material_id' => $materialId
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Update material
+if ($action === 'update_material') {
+    $materialId = $input['material_id'] ?? '';
+    $title = $input['title'] ?? '';
+    $description = $input['description'] ?? '';
+    $displayOrder = $input['display_order'] ?? 0;
+    $isRequired = $input['is_required'] ?? 0;
+
+    if (empty($materialId) || empty($title)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסרים שדות חובה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            UPDATE course_materials
+            SET title = ?, description = ?, display_order = ?, is_required = ?
+            WHERE id = ?
+        ");
+        $stmt->execute([$title, $description, $displayOrder, $isRequired, $materialId]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'חומר עודכן בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Delete material
+if ($action === 'delete_material') {
+    $materialId = $input['material_id'] ?? '';
+
+    if (empty($materialId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה חומר']);
+        exit;
+    }
+
+    try {
+        // Get file path before deleting
+        $stmt = $db->prepare("SELECT file_path FROM course_materials WHERE id = ?");
+        $stmt->execute([$materialId]);
+        $material = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Delete from database
+        $stmt = $db->prepare("DELETE FROM course_materials WHERE id = ?");
+        $stmt->execute([$materialId]);
+
+        // Delete physical file if exists
+        if ($material && !empty($material['file_path']) && file_exists($material['file_path'])) {
+            unlink($material['file_path']);
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'חומר נמחק בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
+// REPORTS AND ANALYTICS
+// ============================================
+
+// Get comprehensive course analytics
+if ($action === 'get_course_analytics') {
+    try {
+        // Total users
+        $totalUsers = $db->query("SELECT COUNT(*) FROM users WHERE is_active = 1")->fetchColumn();
+
+        // Total tasks
+        $totalTasks = $db->query("SELECT COUNT(*) FROM course_tasks WHERE is_active = 1")->fetchColumn();
+
+        // Total assignments
+        $totalAssignments = $db->query("SELECT COUNT(*) FROM user_tasks")->fetchColumn();
+
+        // Completion stats
+        $completedAssignments = $db->query("SELECT COUNT(*) FROM user_tasks WHERE status IN ('completed', 'approved')")->fetchColumn();
+        $pendingAssignments = $db->query("SELECT COUNT(*) FROM user_tasks WHERE status = 'pending'")->fetchColumn();
+        $inProgressAssignments = $db->query("SELECT COUNT(*) FROM user_tasks WHERE status = 'in_progress'")->fetchColumn();
+        $needsReviewAssignments = $db->query("SELECT COUNT(*) FROM user_tasks WHERE status = 'needs_review'")->fetchColumn();
+
+        // Average completion rate
+        $completionRate = $totalAssignments > 0 ? round(($completedAssignments / $totalAssignments) * 100, 2) : 0;
+
+        // Active users (users with at least one assignment)
+        $activeUsers = $db->query("SELECT COUNT(DISTINCT user_id) FROM user_tasks")->fetchColumn();
+
+        // Task completion by type
+        $stmt = $db->query("
+            SELECT
+                ct.task_type,
+                COUNT(ut.id) as total,
+                SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) as completed
+            FROM user_tasks ut
+            JOIN course_tasks ct ON ut.task_id = ct.id
+            GROUP BY ct.task_type
+        ");
+        $taskTypeStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Recent activity (last 7 days)
+        $stmt = $db->query("
+            SELECT DATE(assigned_at) as date, COUNT(*) as count
+            FROM user_tasks
+            WHERE assigned_at >= date('now', '-7 days')
+            GROUP BY DATE(assigned_at)
+            ORDER BY date DESC
+        ");
+        $recentActivity = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Top performers (users with highest completion rate)
+        $stmt = $db->query("
+            SELECT
+                u.id,
+                u.full_name,
+                u.tz,
+                COUNT(ut.id) as total_tasks,
+                SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) as completed_tasks,
+                ROUND(SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) * 100.0 / COUNT(ut.id), 2) as completion_rate
+            FROM users u
+            JOIN user_tasks ut ON u.id = ut.user_id
+            GROUP BY u.id
+            HAVING COUNT(ut.id) > 0
+            ORDER BY completion_rate DESC, completed_tasks DESC
+            LIMIT 10
+        ");
+        $topPerformers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'analytics' => [
+                'totals' => [
+                    'users' => $totalUsers,
+                    'active_users' => $activeUsers,
+                    'tasks' => $totalTasks,
+                    'assignments' => $totalAssignments,
+                    'completion_rate' => $completionRate
+                ],
+                'status_breakdown' => [
+                    'completed' => $completedAssignments,
+                    'pending' => $pendingAssignments,
+                    'in_progress' => $inProgressAssignments,
+                    'needs_review' => $needsReviewAssignments
+                ],
+                'task_type_stats' => $taskTypeStats,
+                'recent_activity' => $recentActivity,
+                'top_performers' => $topPerformers
+            ]
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Get detailed progress report with filters
+if ($action === 'get_progress_report') {
+    $statusFilter = $input['status_filter'] ?? null;
+    $taskFilter = $input['task_filter'] ?? null;
+    $searchTerm = $input['search'] ?? '';
+
+    try {
+        $sql = "
+            SELECT
+                u.id as user_id,
+                u.full_name,
+                u.tz,
+                COUNT(ut.id) as total_assignments,
+                SUM(CASE WHEN ut.status = 'completed' OR ut.status = 'approved' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN ut.status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+                SUM(CASE WHEN ut.status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN ut.status = 'needs_review' THEN 1 ELSE 0 END) as needs_review,
+                ROUND(SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) * 100.0 / COUNT(ut.id), 2) as completion_percentage
+            FROM users u
+            LEFT JOIN user_tasks ut ON u.id = ut.user_id
+        ";
+
+        $conditions = [];
+        $params = [];
+
+        if ($statusFilter) {
+            $conditions[] = "ut.status = ?";
+            $params[] = $statusFilter;
+        }
+
+        if ($taskFilter) {
+            $conditions[] = "ut.task_id = ?";
+            $params[] = $taskFilter;
+        }
+
+        if (!empty($searchTerm)) {
+            $conditions[] = "(u.full_name LIKE ? OR u.tz LIKE ?)";
+            $params[] = "%$searchTerm%";
+            $params[] = "%$searchTerm%";
+        }
+
+        if (count($conditions) > 0) {
+            $sql .= " WHERE " . implode(" AND ", $conditions);
+        }
+
+        $sql .= " GROUP BY u.id ORDER BY completion_percentage DESC, completed DESC";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $report = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'report' => $report
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Get task completion statistics
+if ($action === 'get_task_stats') {
+    try {
+        $stmt = $db->query("
+            SELECT
+                ct.id,
+                ct.title,
+                ct.task_type,
+                COUNT(ut.id) as assigned_count,
+                SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN ut.status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_count,
+                SUM(CASE WHEN ut.status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+                SUM(CASE WHEN ut.status = 'needs_review' THEN 1 ELSE 0 END) as needs_review_count,
+                ROUND(SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) * 100.0 / COUNT(ut.id), 2) as completion_rate
+            FROM course_tasks ct
+            LEFT JOIN user_tasks ut ON ct.id = ut.task_id
+            WHERE ct.is_active = 1
+            GROUP BY ct.id
+            ORDER BY assigned_count DESC
+        ");
+        $stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'task_stats' => $stats
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
     }
     exit;
 }
