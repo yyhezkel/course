@@ -178,8 +178,10 @@ if ($action === 'create_user') {
         $idType = $input['id_type'] ?? 'tz'; // 'tz' or 'personal_number'
         $fullName = $input['full_name'] ?? '';
         $password = $input['password'] ?? '';
-        $userType = $input['user_type'] ?? 'regular'; // 'admin' or 'regular'
         $formId = $input['form_id'] ?? null;
+
+        // NOTE: This endpoint creates REGULAR USERS (students) only.
+        // Admin users are managed separately via admin_users table.
 
         // Validate ID number
         if (empty($tz)) {
@@ -204,13 +206,6 @@ if ($action === 'create_user') {
             exit;
         }
 
-        // For admin users, password is required
-        if ($userType === 'admin' && empty($password)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'סיסמה נדרשת למשתמש מנהל']);
-            exit;
-        }
-
         // Check if user already exists
         $stmt = $db->prepare("SELECT id FROM users WHERE tz = ?");
         $stmt->execute([$tz]);
@@ -226,13 +221,11 @@ if ($action === 'create_user') {
             $passwordHash = password_hash($password, PASSWORD_BCRYPT);
         }
 
-        $role = ($userType === 'admin') ? 'admin' : 'user';
-
         $stmt = $db->prepare("
-            INSERT INTO users (tz, id_type, password_hash, full_name, role, is_active, created_at)
-            VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+            INSERT INTO users (tz, id_type, password_hash, full_name, is_active, created_at)
+            VALUES (?, ?, ?, ?, 1, datetime('now'))
         ");
-        $stmt->execute([$tz, $idType, $passwordHash, $fullName, $role]);
+        $stmt->execute([$tz, $idType, $passwordHash, $fullName]);
         $userId = $db->lastInsertId();
 
         // Assign form if provided
@@ -262,8 +255,10 @@ if ($action === 'create_user') {
 if ($action === 'bulk_import_users') {
     try {
         $csvData = $input['csv_data'] ?? '';
-        $userType = $input['user_type'] ?? 'regular';
         $formId = $input['form_id'] ?? null;
+
+        // NOTE: This endpoint creates REGULAR USERS (students) only.
+        // Admin users are managed separately via admin_users table.
 
         if (empty($csvData)) {
             http_response_code(400);
@@ -314,25 +309,17 @@ if ($action === 'bulk_import_users') {
                 continue;
             }
 
-            // For admin users, password is required
-            if ($userType === 'admin' && empty($password)) {
-                $errors[] = "שורה " . ($lineNum + 1) . ": סיסמה נדרשת למשתמש מנהל";
-                continue;
-            }
-
             // Create user
             $passwordHash = null;
             if (!empty($password)) {
                 $passwordHash = password_hash($password, PASSWORD_BCRYPT);
             }
 
-            $role = ($userType === 'admin') ? 'admin' : 'user';
-
             $stmt = $db->prepare("
-                INSERT INTO users (tz, id_type, password_hash, full_name, role, is_active, created_at)
-                VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+                INSERT INTO users (tz, id_type, password_hash, full_name, is_active, created_at)
+                VALUES (?, ?, ?, ?, 1, datetime('now'))
             ");
-            $stmt->execute([$tz, $idType, $passwordHash, $fullName, $role]);
+            $stmt->execute([$tz, $idType, $passwordHash, $fullName]);
             $userId = $db->lastInsertId();
 
             // Assign form if provided
