@@ -1619,7 +1619,7 @@ if ($action === 'bulk_assign_task') {
     }
 
     try {
-        $adminId = $_SESSION['admin_id'] ?? null;
+        $adminId = $_SESSION['admin_user_id'] ?? null;
         $assignedCount = 0;
         $skippedCount = 0;
 
@@ -1645,18 +1645,23 @@ if ($action === 'bulk_assign_task') {
             $stmt->execute([$userId, $taskId, $adminId, $dueDate, $priority]);
             $userTaskId = $db->lastInsertId();
 
-            // Create notification
-            $stmt = $db->prepare("
-                INSERT INTO notifications (user_id, title, message, notification_type, related_task_id, related_user_task_id)
-                VALUES (?, ?, ?, 'task_assigned', ?, ?)
-            ");
-            $stmt->execute([
-                $userId,
-                'משימה חדשה הוקצתה',
-                "הוקצתה לך משימה חדשה: {$taskTitle}",
-                $taskId,
-                $userTaskId
-            ]);
+            // Try to create notification (optional - won't fail assignment if notifications table doesn't exist)
+            try {
+                $stmt = $db->prepare("
+                    INSERT INTO notifications (user_id, title, message, notification_type, related_task_id, related_user_task_id)
+                    VALUES (?, ?, ?, 'task_assigned', ?, ?)
+                ");
+                $stmt->execute([
+                    $userId,
+                    'משימה חדשה הוקצתה',
+                    "הוקצתה לך משימה חדשה: {$taskTitle}",
+                    $taskId,
+                    $userTaskId
+                ]);
+            } catch (Exception $notifError) {
+                // Notification failed but assignment succeeded - this is okay
+                // Notifications table may not exist yet
+            }
 
             $assignedCount++;
         }
