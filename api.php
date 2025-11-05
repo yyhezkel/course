@@ -114,21 +114,21 @@ function ensureUserAuthFields($db) {
         $columns = $result->fetchAll(PDO::FETCH_ASSOC);
         $existingColumns = array_column($columns, 'name');
 
-        $fieldsToAdd = [
-            'username' => 'TEXT UNIQUE',
-            'password_hash' => 'TEXT'
-        ];
-
-        foreach ($fieldsToAdd as $colName => $colType) {
-            if (!in_array($colName, $existingColumns)) {
-                $db->exec("ALTER TABLE users ADD COLUMN $colName $colType");
-            }
+        // Add username field (without UNIQUE - that will be handled by index)
+        if (!in_array('username', $existingColumns)) {
+            $db->exec("ALTER TABLE users ADD COLUMN username TEXT");
         }
 
-        // Create index for faster username lookups
-        $db->exec("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)");
+        // Add password_hash field
+        if (!in_array('password_hash', $existingColumns)) {
+            $db->exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
+        }
+
+        // Create unique index for username lookups
+        $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)");
     } catch (Exception $e) {
-        // Fields might already exist, ignore error
+        // Fields might already exist, ignore error silently
+        error_log("ensureUserAuthFields error: " . $e->getMessage());
     }
 }
 
