@@ -325,7 +325,7 @@
         }
 
         function assignNewTask() {
-            window.location.href = `assign-task.html?user_id=${userId}`;
+            window.location.href = `assign.php?user_id=${userId}`;
         }
 
         function getStatusText(status) {
