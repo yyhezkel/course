@@ -1432,6 +1432,46 @@ if ($action === 'update_task') {
     exit;
 }
 
+// Delete task
+if ($action === 'delete_task') {
+    $taskId = $input['task_id'] ?? '';
+
+    if (empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה']);
+        exit;
+    }
+
+    try {
+        // Check if task has assignments
+        $stmt = $db->prepare("SELECT COUNT(*) FROM user_tasks WHERE task_id = ?");
+        $stmt->execute([$taskId]);
+        $assignmentsCount = $stmt->fetchColumn();
+
+        if ($assignmentsCount > 0) {
+            // Don't delete, just deactivate
+            $stmt = $db->prepare("UPDATE course_tasks SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+            $stmt->execute([$taskId]);
+            echo json_encode([
+                'success' => true,
+                'message' => 'המשימה הושבתה (לא נמחקה כיוון שיש לה הקצאות קיימות)'
+            ]);
+        } else {
+            // Safe to delete
+            $stmt = $db->prepare("DELETE FROM course_tasks WHERE id = ?");
+            $stmt->execute([$taskId]);
+            echo json_encode([
+                'success' => true,
+                'message' => 'המשימה נמחקה בהצלחה'
+            ]);
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה במחיקת המשימה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 // Bulk assign task to multiple users
 if ($action === 'bulk_assign_task') {
     $userIds = $input['user_ids'] ?? [];
