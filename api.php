@@ -872,28 +872,34 @@ if ($action === 'get_dashboard') {
         $stmt->execute([$userId]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // שליפת כל המשימות של המשתמש
-        $stmt = $db->prepare("
-            SELECT
-                ut.id,
-                ut.task_id,
-                ut.status,
-                ut.due_date,
-                ut.priority,
-                ct.title,
-                ct.description,
-                ct.task_type,
-                ct.estimated_duration,
-                ct.points,
-                ct.sequence_order,
-                ct.form_id
-            FROM user_tasks ut
-            JOIN course_tasks ct ON ut.task_id = ct.id
-            WHERE ut.user_id = ? AND ct.is_active = 1
-            ORDER BY ct.sequence_order ASC
-        ");
-        $stmt->execute([$userId]);
-        $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // בדיקה אם טבלת המשימות קיימת
+        $tableCheck = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='course_tasks'")->fetch();
+
+        $tasks = [];
+        if ($tableCheck) {
+            // שליפת כל המשימות של המשתמש
+            $stmt = $db->prepare("
+                SELECT
+                    ut.id,
+                    ut.task_id,
+                    ut.status,
+                    ut.due_date,
+                    ut.priority,
+                    ct.title,
+                    ct.description,
+                    ct.task_type,
+                    ct.estimated_duration,
+                    ct.points,
+                    ct.sequence_order,
+                    ct.form_id
+                FROM user_tasks ut
+                JOIN course_tasks ct ON ut.task_id = ct.id
+                WHERE ut.user_id = ? AND ct.is_active = 1
+                ORDER BY ct.sequence_order ASC
+            ");
+            $stmt->execute([$userId]);
+            $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
 
         echo json_encode([
             'success' => true,
@@ -903,6 +909,7 @@ if ($action === 'get_dashboard') {
         exit;
 
     } catch (Exception $e) {
+        error_log("Dashboard error for user $userId: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת הנתונים: ' . $e->getMessage()]);
         exit;
