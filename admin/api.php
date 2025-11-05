@@ -1432,6 +1432,55 @@ if ($action === 'update_task') {
     exit;
 }
 
+// Get single task for editing
+if ($action === 'get_task') {
+    $taskId = $input['task_id'] ?? '';
+
+    if (empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("SELECT * FROM course_tasks WHERE id = ?");
+        $stmt->execute([$taskId]);
+        $task = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$task) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'המשימה לא נמצאה']);
+            exit;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'task' => $task
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// List all forms
+if ($action === 'list_forms') {
+    try {
+        $stmt = $db->query("SELECT id, title FROM forms WHERE is_active = 1 ORDER BY created_at DESC");
+        $forms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'forms' => $forms
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 // Delete task
 if ($action === 'delete_task') {
     $taskId = $input['task_id'] ?? '';
