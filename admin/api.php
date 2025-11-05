@@ -1754,6 +1754,197 @@ if ($action === 'delete_material') {
 }
 
 // ============================================
+// REPORTS AND ANALYTICS
+// ============================================
+
+// Get comprehensive course analytics
+if ($action === 'get_course_analytics') {
+    try {
+        // Total users
+        $totalUsers = $db->query("SELECT COUNT(*) FROM users WHERE is_active = 1")->fetchColumn();
+
+        // Total tasks
+        $totalTasks = $db->query("SELECT COUNT(*) FROM course_tasks WHERE is_active = 1")->fetchColumn();
+
+        // Total assignments
+        $totalAssignments = $db->query("SELECT COUNT(*) FROM user_tasks")->fetchColumn();
+
+        // Completion stats
+        $completedAssignments = $db->query("SELECT COUNT(*) FROM user_tasks WHERE status IN ('completed', 'approved')")->fetchColumn();
+        $pendingAssignments = $db->query("SELECT COUNT(*) FROM user_tasks WHERE status = 'pending'")->fetchColumn();
+        $inProgressAssignments = $db->query("SELECT COUNT(*) FROM user_tasks WHERE status = 'in_progress'")->fetchColumn();
+        $needsReviewAssignments = $db->query("SELECT COUNT(*) FROM user_tasks WHERE status = 'needs_review'")->fetchColumn();
+
+        // Average completion rate
+        $completionRate = $totalAssignments > 0 ? round(($completedAssignments / $totalAssignments) * 100, 2) : 0;
+
+        // Active users (users with at least one assignment)
+        $activeUsers = $db->query("SELECT COUNT(DISTINCT user_id) FROM user_tasks")->fetchColumn();
+
+        // Task completion by type
+        $stmt = $db->query("
+            SELECT
+                ct.task_type,
+                COUNT(ut.id) as total,
+                SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) as completed
+            FROM user_tasks ut
+            JOIN course_tasks ct ON ut.task_id = ct.id
+            GROUP BY ct.task_type
+        ");
+        $taskTypeStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Recent activity (last 7 days)
+        $stmt = $db->query("
+            SELECT DATE(assigned_at) as date, COUNT(*) as count
+            FROM user_tasks
+            WHERE assigned_at >= date('now', '-7 days')
+            GROUP BY DATE(assigned_at)
+            ORDER BY date DESC
+        ");
+        $recentActivity = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Top performers (users with highest completion rate)
+        $stmt = $db->query("
+            SELECT
+                u.id,
+                u.full_name,
+                u.tz,
+                COUNT(ut.id) as total_tasks,
+                SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) as completed_tasks,
+                ROUND(SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) * 100.0 / COUNT(ut.id), 2) as completion_rate
+            FROM users u
+            JOIN user_tasks ut ON u.id = ut.user_id
+            GROUP BY u.id
+            HAVING COUNT(ut.id) > 0
+            ORDER BY completion_rate DESC, completed_tasks DESC
+            LIMIT 10
+        ");
+        $topPerformers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'analytics' => [
+                'totals' => [
+                    'users' => $totalUsers,
+                    'active_users' => $activeUsers,
+                    'tasks' => $totalTasks,
+                    'assignments' => $totalAssignments,
+                    'completion_rate' => $completionRate
+                ],
+                'status_breakdown' => [
+                    'completed' => $completedAssignments,
+                    'pending' => $pendingAssignments,
+                    'in_progress' => $inProgressAssignments,
+                    'needs_review' => $needsReviewAssignments
+                ],
+                'task_type_stats' => $taskTypeStats,
+                'recent_activity' => $recentActivity,
+                'top_performers' => $topPerformers
+            ]
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Get detailed progress report with filters
+if ($action === 'get_progress_report') {
+    $statusFilter = $input['status_filter'] ?? null;
+    $taskFilter = $input['task_filter'] ?? null;
+    $searchTerm = $input['search'] ?? '';
+
+    try {
+        $sql = "
+            SELECT
+                u.id as user_id,
+                u.full_name,
+                u.tz,
+                COUNT(ut.id) as total_assignments,
+                SUM(CASE WHEN ut.status = 'completed' OR ut.status = 'approved' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN ut.status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
+                SUM(CASE WHEN ut.status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN ut.status = 'needs_review' THEN 1 ELSE 0 END) as needs_review,
+                ROUND(SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) * 100.0 / COUNT(ut.id), 2) as completion_percentage
+            FROM users u
+            LEFT JOIN user_tasks ut ON u.id = ut.user_id
+        ";
+
+        $conditions = [];
+        $params = [];
+
+        if ($statusFilter) {
+            $conditions[] = "ut.status = ?";
+            $params[] = $statusFilter;
+        }
+
+        if ($taskFilter) {
+            $conditions[] = "ut.task_id = ?";
+            $params[] = $taskFilter;
+        }
+
+        if (!empty($searchTerm)) {
+            $conditions[] = "(u.full_name LIKE ? OR u.tz LIKE ?)";
+            $params[] = "%$searchTerm%";
+            $params[] = "%$searchTerm%";
+        }
+
+        if (count($conditions) > 0) {
+            $sql .= " WHERE " . implode(" AND ", $conditions);
+        }
+
+        $sql .= " GROUP BY u.id ORDER BY completion_percentage DESC, completed DESC";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $report = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'report' => $report
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Get task completion statistics
+if ($action === 'get_task_stats') {
+    try {
+        $stmt = $db->query("
+            SELECT
+                ct.id,
+                ct.title,
+                ct.task_type,
+                COUNT(ut.id) as assigned_count,
+                SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN ut.status = 'in_progress' THEN 1 ELSE 0 END) as in_progress_count,
+                SUM(CASE WHEN ut.status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+                SUM(CASE WHEN ut.status = 'needs_review' THEN 1 ELSE 0 END) as needs_review_count,
+                ROUND(SUM(CASE WHEN ut.status IN ('completed', 'approved') THEN 1 ELSE 0 END) * 100.0 / COUNT(ut.id), 2) as completion_rate
+            FROM course_tasks ct
+            LEFT JOIN user_tasks ut ON ct.id = ut.task_id
+            WHERE ct.is_active = 1
+            GROUP BY ct.id
+            ORDER BY assigned_count DESC
+        ");
+        $stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'task_stats' => $stats
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
 // DEFAULT
 // ============================================
 
