@@ -1686,19 +1686,26 @@ if ($action === 'bulk_assign_task') {
 // Get all materials
 if ($action === 'get_all_materials') {
     try {
-        $stmt = $db->query("
-            SELECT m.*, t.title as task_title
-            FROM course_materials m
-            LEFT JOIN course_tasks t ON m.task_id = t.id
-            ORDER BY m.created_at DESC
-        ");
-        $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Check if course_materials table exists
+        $tableCheck = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='course_materials'")->fetch();
+
+        $materials = [];
+        if ($tableCheck) {
+            $stmt = $db->query("
+                SELECT m.*, t.title as task_title
+                FROM course_materials m
+                LEFT JOIN course_tasks t ON m.task_id = t.id
+                ORDER BY m.created_at DESC
+            ");
+            $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
 
         echo json_encode([
             'success' => true,
             'materials' => $materials
         ]);
     } catch (Exception $e) {
+        error_log("Get materials error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
     }
