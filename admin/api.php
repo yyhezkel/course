@@ -1092,7 +1092,9 @@ if ($action === 'get_all_users_with_progress') {
             SELECT
                 u.id,
                 u.tz,
+                u.full_name,
                 u.is_blocked,
+                u.is_active,
                 u.last_login,
                 COUNT(DISTINCT ut.id) as total_tasks,
                 COUNT(DISTINCT CASE WHEN ut.status IN ('completed', 'approved') THEN ut.id END) as completed_tasks,
