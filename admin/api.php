@@ -2259,8 +2259,8 @@ if ($action === 'get_user_detail') {
     }
 
     try {
-        // Get user info
-        $stmt = $db->prepare("SELECT id, tz, full_name, is_blocked, is_active, last_login FROM users WHERE id = ?");
+        // Get user info (including profile_photo)
+        $stmt = $db->prepare("SELECT id, tz, full_name, is_blocked, is_active, last_login, profile_photo FROM users WHERE id = ?");
         $stmt->execute([$userId]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 

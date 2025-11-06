@@ -275,15 +275,27 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('userContent').style.display = 'block';
 
-            // User header
-            let initials = '??';
-            if (userData.full_name) {
-                const names = userData.full_name.split(' ');
-                initials = names.map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
-            } else if (userData.tz) {
-                initials = userData.tz.substring(0, 2);
+            // User header - display profile photo if available
+            const avatarElement = document.getElementById('userAvatar');
+            if (userData.profile_photo) {
+                // Display profile photo
+                avatarElement.style.backgroundImage = `url('${userData.profile_photo}')`;
+                avatarElement.style.backgroundSize = 'cover';
+                avatarElement.style.backgroundPosition = 'center';
+                avatarElement.textContent = '';
+            } else {
+                // Display initials
+                let initials = '??';
+                if (userData.full_name) {
+                    const names = userData.full_name.split(' ');
+                    initials = names.map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
+                } else if (userData.tz) {
+                    initials = userData.tz.substring(0, 2);
+                }
+                avatarElement.style.backgroundImage = '';
+                avatarElement.textContent = initials;
             }
-            document.getElementById('userAvatar').textContent = initials;
+
             document.getElementById('userName').textContent = userData.full_name || userData.tz || 'תלמיד';
             document.getElementById('userTz').textContent = `ת.ז.: ${userData.tz}`;
             if (userData.last_login) {
@@ -364,12 +376,28 @@
                         ${hasSubmissions ? `
                             <div style="background: #f0fdf4; padding: 10px; border-radius: 6px; margin: 10px 0; border-right: 3px solid #059669;">
                                 <div style="font-size: 12px; color: #065f46; margin-bottom: 6px; font-weight: 500;">📎 קבצים שהועלו:</div>
-                                ${task.submissions.map(sub => `
-                                    <div style="display: flex; align-items: center; justify-content: space-between; margin: 4px 0; padding: 6px; background: white; border-radius: 4px;">
-                                        <span style="font-size: 13px; color: #374151;">${sub.original_filename}</span>
-                                        <a href="${sub.filepath}" target="_blank" style="color: #2563eb; text-decoration: none; font-size: 12px;">📥 הורדה</a>
-                                    </div>
-                                `).join('')}
+                                ${task.submissions.map(sub => {
+                                    const isImage = sub.mime_type && sub.mime_type.startsWith('image/');
+                                    const isPdf = sub.mime_type && sub.mime_type === 'application/pdf';
+                                    const isVideo = sub.mime_type && sub.mime_type.startsWith('video/');
+                                    return `
+                                        <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0; padding: 6px; background: white; border-radius: 4px;">
+                                            ${isImage ? `
+                                                <div style="width: 40px; height: 40px; border-radius: 4px; overflow: hidden; flex-shrink: 0;">
+                                                    <img src="${sub.filepath}" style="width: 100%; height: 100%; object-fit: cover;" alt="תצוגה מקדימה">
+                                                </div>
+                                            ` : isPdf ? `
+                                                <div style="width: 40px; height: 40px; background: #ef4444; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; flex-shrink: 0;">PDF</div>
+                                            ` : isVideo ? `
+                                                <div style="width: 40px; height: 40px; background: #8b5cf6; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; flex-shrink: 0;">▶</div>
+                                            ` : `
+                                                <div style="width: 40px; height: 40px; background: #6b7280; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; flex-shrink: 0;">📄</div>
+                                            `}
+                                            <span style="flex: 1; font-size: 13px; color: #374151;">${sub.original_filename}</span>
+                                            <a href="${sub.filepath}" target="_blank" style="color: #2563eb; text-decoration: none; font-size: 12px; white-space: nowrap;">📥 הורדה</a>
+                                        </div>
+                                    `;
+                                }).join('')}
                             </div>
                         ` : ''}
                         <div class="task-actions">
@@ -525,11 +553,19 @@
         }
 
         function previewTask(taskId) {
-            const task = userTasks.find(t => t.id === taskId);
+            console.log('previewTask called with taskId:', taskId);
+            console.log('Available tasks:', userTasks);
+            console.log('Task IDs:', userTasks.map(t => ({ id: t.id, title: t.title })));
+
+            const task = userTasks.find(t => t.id == taskId); // Use == for loose comparison
             if (!task) {
-                alert('משימה לא נמצאה');
+                console.error('Task not found. Looking for ID:', taskId);
+                console.error('Available task IDs:', userTasks.map(t => t.id));
+                alert(`משימה לא נמצאה (ID: ${taskId})`);
                 return;
             }
+
+            console.log('Found task:', task);
 
             const hasSubmissions = task.submissions && task.submissions.length > 0;
             const hasGrade = task.grade !== null && task.grade !== undefined;
@@ -586,9 +622,31 @@
                             ${task.submissions.map(sub => {
                                 const uploadDate = new Date(sub.uploaded_at).toLocaleString('he-IL');
                                 const fileSize = (sub.filesize / 1024).toFixed(2);
+                                const isImage = sub.mime_type && sub.mime_type.startsWith('image/');
+                                const isPdf = sub.mime_type && sub.mime_type === 'application/pdf';
+                                const isVideo = sub.mime_type && sub.mime_type.startsWith('video/');
                                 return `
                                     <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #d1fae5;">
-                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                                        ${isImage ? `
+                                            <div style="margin-bottom: 10px; text-align: center;">
+                                                <img src="${sub.filepath}" style="max-width: 100%; max-height: 300px; border-radius: 6px; border: 1px solid #d1fae5;" alt="תצוגה מקדימה">
+                                            </div>
+                                        ` : ''}
+                                        ${isVideo ? `
+                                            <div style="margin-bottom: 10px;">
+                                                <video controls style="max-width: 100%; max-height: 300px; border-radius: 6px; border: 1px solid #d1fae5;">
+                                                    <source src="${sub.filepath}" type="${sub.mime_type}">
+                                                    הדפדפן שלך אינו תומך בהצגת וידאו
+                                                </video>
+                                            </div>
+                                        ` : ''}
+                                        ${isPdf ? `
+                                            <div style="margin-bottom: 10px; padding: 20px; background: #fee2e2; border-radius: 6px; text-align: center;">
+                                                <div style="font-size: 48px; color: #dc2626; margin-bottom: 10px;">📄</div>
+                                                <div style="font-size: 14px; color: #991b1b;">קובץ PDF</div>
+                                            </div>
+                                        ` : ''}
+                                        <div style="display: flex; justify-content: space-between; align-items: start;">
                                             <div style="flex: 1;">
                                                 <div style="font-weight: 500; color: #065f46; margin-bottom: 4px;">${sub.original_filename}</div>
                                                 <div style="font-size: 12px; color: #059669;">
