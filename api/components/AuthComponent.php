@@ -31,6 +31,25 @@ class AuthComponent extends BaseComponent {
 
         // METHOD 1: Login with username + password
         if (!empty($username) && !empty($password)) {
+            // Validate email format
+            if (!filter_var($username, FILTER_VALIDATE_EMAIL)) {
+                $this->sendError(400, 'כתובת האימייל אינה תקינה.');
+            }
+
+            // Validate password strength (at least 8 chars, 1 uppercase, 1 number, 1 special char)
+            if (strlen($password) < 8) {
+                $this->sendError(400, 'הסיסמה חייבת להכיל לפחות 8 תווים.');
+            }
+            if (!preg_match('/[A-Z]/', $password)) {
+                $this->sendError(400, 'הסיסמה חייבת להכיל לפחות אות אחת גדולה.');
+            }
+            if (!preg_match('/[0-9]/', $password)) {
+                $this->sendError(400, 'הסיסמה חייבת להכיל לפחות ספרה אחת.');
+            }
+            if (!preg_match('/[!@#$%^&*()\-_=+\[\]{};:\'",.<>\/?\\\\|`~]/', $password)) {
+                $this->sendError(400, 'הסיסמה חייבת להכיל לפחות תו מיוחד אחד.');
+            }
+
             $stmt = $this->db->prepare("SELECT id, is_blocked, failed_attempts, id_type, password_hash, tz FROM users WHERE username = ?");
             $stmt->execute([$username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -45,7 +64,7 @@ class AuthComponent extends BaseComponent {
             }
 
             if (!$user) {
-                $this->sendError(401, 'שם משתמש או סיסמה שגויים.');
+                $this->sendError(401, 'אימייל או סיסמה שגויים.');
             }
 
             $tz = $user['tz'];
@@ -83,7 +102,7 @@ class AuthComponent extends BaseComponent {
                 }
             }
         } else {
-            $this->sendError(400, 'נא למלא מספר זהוי או שם משתמש וסיסמה.');
+            $this->sendError(400, 'נא למלא מספר זהוי או אימייל וסיסמה.');
         }
 
         if ($user) {
