@@ -14,6 +14,7 @@ session_start();
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/security_helpers.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: https://qr.bot4wa.com');
@@ -25,12 +26,595 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Require authentication for all API calls
-requireAuth();
-
 $input = json_decode(file_get_contents('php://input'), true);
 $action = $input['action'] ?? $_GET['action'] ?? '';
 $db = getDbConnection();
+
+// ============================================
+// PUBLIC ENDPOINTS (No Authentication Required)
+// ============================================
+
+// Validate invite token
+if ($action === 'validate_invite_token') {
+    try {
+        $token = $input['token'] ?? '';
+
+        if (empty($token)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'קוד הזמנה חסר']);
+            exit;
+        }
+
+        // Find token in database
+        $stmt = $db->prepare("
+            SELECT
+                id,
+                token,
+                role,
+                preset_full_name,
+                expires_at,
+                used_at,
+                is_active
+            FROM registration_tokens
+            WHERE token = ?
+        ");
+        $stmt->execute([$token]);
+        $tokenData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Check if token exists
+        if (!$tokenData) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'קוד הזמנה לא נמצא']);
+            exit;
+        }
+
+        // Check if token is active
+        if (!$tokenData['is_active']) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'קוד הזמנה זה בוטל']);
+            exit;
+        }
+
+        // Check if token was already used
+        if ($tokenData['used_at']) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'קוד הזמנה זה כבר נוצל']);
+            exit;
+        }
+
+        // Check if token expired
+        if ($tokenData['expires_at'] && strtotime($tokenData['expires_at']) < time()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'קוד הזמנה זה פג תוקף']);
+            exit;
+        }
+
+        // Token is valid
+        echo json_encode([
+            'success' => true,
+            'message' => 'קוד הזמנה תקף',
+            'token' => [
+                'role' => $tokenData['role'],
+                'preset_full_name' => $tokenData['preset_full_name'],
+                'expires_at' => $tokenData['expires_at']
+            ]
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בבדיקת קוד ההזמנה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Register admin with token
+if ($action === 'register_with_token') {
+    try {
+        $token = $input['token'] ?? '';
+        $username = trim($input['username'] ?? '');
+        $email = trim($input['email'] ?? '');
+        $fullName = trim($input['full_name'] ?? '');
+        $password = $input['password'] ?? '';
+
+        // Validate required fields
+        if (empty($token) || empty($username) || empty($email) || empty($password)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'שדות חובה חסרים']);
+            exit;
+        }
+
+        // Validate username length
+        if (strlen($username) < 3) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'שם המשתמש חייב להיות לפחות 3 תווים']);
+            exit;
+        }
+
+        // Validate email
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'כתובת דוא"ל לא תקינה']);
+            exit;
+        }
+
+        // Validate password strength
+        $passwordValidation = validatePasswordStrength($password);
+        if (!$passwordValidation['valid']) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => $passwordValidation['message']]);
+            exit;
+        }
+
+        // Start transaction
+        $db->beginTransaction();
+
+        try {
+            // Validate and fetch token
+            $stmt = $db->prepare("
+                SELECT
+                    id,
+                    role,
+                    preset_full_name,
+                    expires_at,
+                    used_at,
+                    is_active
+                FROM registration_tokens
+                WHERE token = ?
+            ");
+            $stmt->execute([$token]);
+            $tokenData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Validate token (same checks as validate endpoint)
+            if (!$tokenData) {
+                throw new Exception('קוד הזמנה לא נמצא');
+            }
+            if (!$tokenData['is_active']) {
+                throw new Exception('קוד הזמנה זה בוטל');
+            }
+            if ($tokenData['used_at']) {
+                throw new Exception('קוד הזמנה זה כבר נוצל');
+            }
+            if ($tokenData['expires_at'] && strtotime($tokenData['expires_at']) < time()) {
+                throw new Exception('קוד הזמנה זה פג תוקף');
+            }
+
+            // Check if username already exists
+            $stmt = $db->prepare("SELECT id FROM admin_users WHERE username = ?");
+            $stmt->execute([$username]);
+            if ($stmt->fetch()) {
+                throw new Exception('שם המשתמש כבר קיים במערכת');
+            }
+
+            // Check if email already exists
+            $stmt = $db->prepare("SELECT id FROM admin_users WHERE email = ?");
+            $stmt->execute([$email]);
+            if ($stmt->fetch()) {
+                throw new Exception('כתובת הדוא"ל כבר קיימת במערכת');
+            }
+
+            // Use preset full name if not provided
+            if (empty($fullName) && !empty($tokenData['preset_full_name'])) {
+                $fullName = $tokenData['preset_full_name'];
+            }
+
+            // Create admin user
+            $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+            $stmt = $db->prepare("
+                INSERT INTO admin_users (username, password_hash, email, full_name, role, is_active, created_at)
+                VALUES (?, ?, ?, ?, ?, 1, datetime('now'))
+            ");
+            $stmt->execute([$username, $passwordHash, $email, $fullName, $tokenData['role']]);
+            $adminId = $db->lastInsertId();
+
+            // Mark token as used
+            $stmt = $db->prepare("
+                UPDATE registration_tokens
+                SET used_at = datetime('now'),
+                    used_by_admin_id = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$adminId, $tokenData['id']]);
+
+            // Log activity (if activity_log table exists)
+            try {
+                $stmt = $db->prepare("
+                    INSERT INTO activity_log (admin_user_id, action, entity_type, entity_id, created_at)
+                    VALUES (?, 'create', 'admin_user', ?, datetime('now'))
+                ");
+                $stmt->execute([$adminId, $adminId]);
+            } catch (Exception $logError) {
+                // Ignore if activity_log doesn't exist
+                error_log("Activity log error: " . $logError->getMessage());
+            }
+
+            // Commit transaction
+            $db->commit();
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'חשבון המנהל נוצר בהצלחה! מעביר לדף התחברות...',
+                'admin_id' => $adminId,
+                'username' => $username
+            ]);
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw $e;
+        }
+
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
+// AUTHENTICATED ENDPOINTS
+// ============================================
+
+// Require authentication for all other API calls
+requireAuth();
+
+// ============================================
+// ADMIN USER MANAGEMENT
+// ============================================
+
+// List all admin users
+if ($action === 'list_admins') {
+    try {
+        $stmt = $db->query("
+            SELECT
+                id,
+                username,
+                email,
+                full_name,
+                role,
+                is_active,
+                last_login,
+                created_at
+            FROM admin_users
+            ORDER BY created_at DESC
+        ");
+        $admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'admins' => $admins
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת מנהלים: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Toggle admin status (activate/deactivate)
+if ($action === 'toggle_admin_status') {
+    try {
+        $adminId = $input['admin_id'] ?? null;
+
+        if (!$adminId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'מזהה מנהל חסר']);
+            exit;
+        }
+
+        // Get current status
+        $stmt = $db->prepare("SELECT is_active FROM admin_users WHERE id = ?");
+        $stmt->execute([$adminId]);
+        $admin = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$admin) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'מנהל לא נמצא']);
+            exit;
+        }
+
+        // Toggle status
+        $newStatus = $admin['is_active'] ? 0 : 1;
+        $stmt = $db->prepare("
+            UPDATE admin_users
+            SET is_active = ?, updated_at = datetime('now')
+            WHERE id = ?
+        ");
+        $stmt->execute([$newStatus, $adminId]);
+
+        // Log activity
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO activity_log (admin_user_id, action, entity_type, entity_id, created_at)
+                VALUES (?, ?, 'admin_user', ?, datetime('now'))
+            ");
+            $stmt->execute([$_SESSION['admin_id'], $newStatus ? 'activate' : 'deactivate', $adminId]);
+        } catch (Exception $logError) {
+            error_log("Activity log error: " . $logError->getMessage());
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => $newStatus ? 'המנהל הופעל בהצלחה' : 'המנהל הושבת בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון הסטטוס: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Delete admin user
+if ($action === 'delete_admin') {
+    try {
+        $adminId = $input['admin_id'] ?? null;
+
+        if (!$adminId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'מזהה מנהל חסר']);
+            exit;
+        }
+
+        // Prevent self-deletion
+        if ($adminId == $_SESSION['admin_id']) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'לא ניתן למחוק את עצמך']);
+            exit;
+        }
+
+        // Check if at least one admin will remain
+        $activeCount = $db->query("SELECT COUNT(*) FROM admin_users WHERE is_active = 1")->fetchColumn();
+        if ($activeCount <= 1) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'לא ניתן למחוק את המנהל האחרון']);
+            exit;
+        }
+
+        // Delete admin
+        $stmt = $db->prepare("DELETE FROM admin_users WHERE id = ?");
+        $stmt->execute([$adminId]);
+
+        // Log activity
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO activity_log (admin_user_id, action, entity_type, entity_id, created_at)
+                VALUES (?, 'delete', 'admin_user', ?, datetime('now'))
+            ");
+            $stmt->execute([$_SESSION['admin_id'], $adminId]);
+        } catch (Exception $logError) {
+            error_log("Activity log error: " . $logError->getMessage());
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'המנהל נמחק בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה במחיקת המנהל: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Change admin password
+if ($action === 'change_admin_password') {
+    try {
+        $adminId = $input['admin_id'] ?? null;
+        $newPassword = $input['new_password'] ?? '';
+
+        if (!$adminId || !$newPassword) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'נתונים חסרים']);
+            exit;
+        }
+
+        // Validate password strength
+        $passwordValidation = validatePasswordStrength($newPassword);
+        if (!$passwordValidation['valid']) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => $passwordValidation['message']]);
+            exit;
+        }
+
+        // Update password
+        $passwordHash = password_hash($newPassword, PASSWORD_BCRYPT);
+        $stmt = $db->prepare("
+            UPDATE admin_users
+            SET password_hash = ?, updated_at = datetime('now')
+            WHERE id = ?
+        ");
+        $stmt->execute([$passwordHash, $adminId]);
+
+        // Log activity
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO activity_log (admin_user_id, action, entity_type, entity_id, created_at)
+                VALUES (?, 'update_password', 'admin_user', ?, datetime('now'))
+            ");
+            $stmt->execute([$_SESSION['admin_id'], $adminId]);
+        } catch (Exception $logError) {
+            error_log("Activity log error: " . $logError->getMessage());
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'הסיסמה שונתה בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בשינוי הסיסמה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
+// INVITE MANAGEMENT
+// ============================================
+
+// Create invite
+if ($action === 'create_invite') {
+    try {
+        $role = $input['role'] ?? 'admin';
+        $fullName = trim($input['full_name'] ?? '');
+        $expiryHours = isset($input['expiry_hours']) ? (int)$input['expiry_hours'] : null;
+
+        // Validate role
+        $validRoles = ['admin', 'super_admin', 'moderator'];
+        if (!in_array($role, $validRoles)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'תפקיד לא תקין']);
+            exit;
+        }
+
+        // Generate token
+        $token = bin2hex(random_bytes(32));
+
+        // Calculate expiry
+        $expiresAt = null;
+        if ($expiryHours) {
+            $expiresAt = date('Y-m-d H:i:s', strtotime("+{$expiryHours} hours"));
+        }
+
+        // Insert token
+        $stmt = $db->prepare("
+            INSERT INTO registration_tokens (token, role, preset_full_name, created_by_admin_id, expires_at, created_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now'))
+        ");
+        $stmt->execute([$token, $role, $fullName, $_SESSION['admin_id'], $expiresAt]);
+
+        // Log activity
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO activity_log (admin_user_id, action, entity_type, entity_id, created_at)
+                VALUES (?, 'create', 'registration_token', ?, datetime('now'))
+            ");
+            $stmt->execute([$_SESSION['admin_id'], $db->lastInsertId()]);
+        } catch (Exception $logError) {
+            error_log("Activity log error: " . $logError->getMessage());
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'הזמנה נוצרה בהצלחה',
+            'token' => $token
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה ביצירת הזמנה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// List invites
+if ($action === 'list_invites') {
+    try {
+        $stmt = $db->query("
+            SELECT
+                rt.*,
+                au.username as used_by_username
+            FROM registration_tokens rt
+            LEFT JOIN admin_users au ON rt.used_by_admin_id = au.id
+            ORDER BY rt.created_at DESC
+        ");
+        $invites = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'invites' => $invites
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת הזמנות: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Revoke invite
+if ($action === 'revoke_invite') {
+    try {
+        $inviteId = $input['invite_id'] ?? null;
+
+        if (!$inviteId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'מזהה הזמנה חסר']);
+            exit;
+        }
+
+        // Update invite
+        $stmt = $db->prepare("
+            UPDATE registration_tokens
+            SET is_active = 0
+            WHERE id = ? AND used_at IS NULL
+        ");
+        $stmt->execute([$inviteId]);
+
+        if ($stmt->rowCount() === 0) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'הזמנה לא נמצאה או כבר נוצלה']);
+            exit;
+        }
+
+        // Log activity
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO activity_log (admin_user_id, action, entity_type, entity_id, created_at)
+                VALUES (?, 'revoke', 'registration_token', ?, datetime('now'))
+            ");
+            $stmt->execute([$_SESSION['admin_id'], $inviteId]);
+        } catch (Exception $logError) {
+            error_log("Activity log error: " . $logError->getMessage());
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'ההזמנה בוטלה בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בביטול הזמנה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Delete invite
+if ($action === 'delete_invite') {
+    try {
+        $inviteId = $input['invite_id'] ?? null;
+
+        if (!$inviteId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'מזהה הזמנה חסר']);
+            exit;
+        }
+
+        // Delete invite
+        $stmt = $db->prepare("DELETE FROM registration_tokens WHERE id = ?");
+        $stmt->execute([$inviteId]);
+
+        if ($stmt->rowCount() === 0) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'הזמנה לא נמצאה']);
+            exit;
+        }
+
+        // Log activity
+        try {
+            $stmt = $db->prepare("
+                INSERT INTO activity_log (admin_user_id, action, entity_type, entity_id, created_at)
+                VALUES (?, 'delete', 'registration_token', ?, datetime('now'))
+            ");
+            $stmt->execute([$_SESSION['admin_id'], $inviteId]);
+        } catch (Exception $logError) {
+            error_log("Activity log error: " . $logError->getMessage());
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'ההזמנה נמחקה בהצלחה'
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה במחיקת הזמנה: ' . $e->getMessage()]);
+    }
+    exit;
+}
 
 // ============================================
 // DASHBOARD STATISTICS

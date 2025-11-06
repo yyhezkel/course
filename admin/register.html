@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>הרשמת מנהל - מערכת ניהול</title>
+    <link rel="stylesheet" href="../style.css?v=2.1">
+    <style>
+        /* Enhanced admin-specific styling */
+        .admin-badge {
+            background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+            color: white;
+            padding: 0.625rem 1.25rem;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 12px rgba(8, 145, 178, 0.3);
+        }
+
+        .admin-logo {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .password-toggle {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 1.25rem;
+            color: var(--gray-400);
+            user-select: none;
+            margin-top: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .password-toggle:hover {
+            color: var(--gray-600);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .password-strength {
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .password-strength.visible {
+            display: block;
+        }
+
+        .strength-bar {
+            height: 4px;
+            background: var(--gray-200);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .strength-bar-fill {
+            height: 100%;
+            transition: all 0.3s;
+            border-radius: 2px;
+        }
+
+        .strength-weak { width: 33%; background: #ef4444; }
+        .strength-medium { width: 66%; background: #f59e0b; }
+        .strength-strong { width: 100%; background: #10b981; }
+
+        .strength-text {
+            font-size: 0.75rem;
+            color: var(--gray-600);
+        }
+
+        .password-requirements {
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background: var(--gray-50);
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.25rem;
+            color: var(--gray-600);
+        }
+
+        .requirement.met {
+            color: #10b981;
+        }
+
+        .requirement.met .requirement-icon::before {
+            content: '✓';
+        }
+
+        .requirement-icon::before {
+            content: '○';
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid var(--gray-200);
+            border-top-color: var(--primary-600);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: var(--blue-50);
+            border: 1px solid var(--blue-200);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-box-title {
+            font-weight: 600;
+            color: var(--blue-900);
+            margin-bottom: 0.5rem;
+        }
+
+        .info-box-text {
+            font-size: 0.875rem;
+            color: var(--blue-700);
+        }
+    </style>
+</head>
+<body>
+    <div class="background-decoration"></div>
+
+    <div class="screen active">
+        <div class="container">
+            <div class="logo-container">
+                <div class="admin-logo">👨‍💼</div>
+                <div class="admin-badge">
+                    <span>📝</span>
+                    <span>הרשמה למערכת</span>
+                </div>
+                <h1 class="app-title">הרשמת מנהל חדש</h1>
+                <p class="app-subtitle">צור חשבון מנהל למערכת הניהול</p>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading-state" class="card" style="display: none;">
+                <div class="card-body" style="text-align: center; padding: 3rem;">
+                    <div class="loading-spinner" style="width: 3rem; height: 3rem; border-width: 4px; margin: 0 auto 1rem;"></div>
+                    <p style="color: var(--gray-600);">מאמת קישור הרשמה...</p>
+                </div>
+            </div>
+
+            <!-- Invalid Token State -->
+            <div id="invalid-token-state" class="card" style="display: none;">
+                <div class="card-body" style="text-align: center; padding: 3rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">❌</div>
+                    <h2 style="color: var(--gray-900); margin-bottom: 1rem;">קישור לא תקין</h2>
+                    <p id="invalid-token-message" style="color: var(--gray-600); margin-bottom: 2rem;"></p>
+                    <a href="index.html" class="btn btn-primary">חזרה לעמוד התחברות</a>
+                </div>
+            </div>
+
+            <!-- Registration Form -->
+            <div id="registration-form-container" class="card" style="display: none;">
+                <div class="card-header">
+                    <h2>פרטי משתמש חדש</h2>
+                    <p>מלא את הפרטים ליצירת חשבון מנהל</p>
+                </div>
+
+                <div class="card-body">
+                    <div id="token-info" class="info-box" style="display: none;">
+                        <div class="info-box-title">פרטי הזמנה</div>
+                        <div class="info-box-text">
+                            <div>תפקיד: <strong id="token-role"></strong></div>
+                            <div id="token-expiry" style="display: none;">תוקף עד: <strong id="token-expiry-date"></strong></div>
+                        </div>
+                    </div>
+
+                    <form id="register-form">
+                        <div class="input-group">
+                            <label for="username" class="input-label">שם משתמש *</label>
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                placeholder="הזן שם משתמש (לפחות 3 תווים)"
+                                class="input-field"
+                                required
+                                minlength="3"
+                                autocomplete="username"
+                            >
+                            <div class="input-icon">👤</div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="email" class="input-label">דוא"ל *</label>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                placeholder="your-email@example.com"
+                                class="input-field"
+                                required
+                                autocomplete="email"
+                            >
+                            <div class="input-icon">✉️</div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="full-name" class="input-label">שם מלא</label>
+                            <input
+                                type="text"
+                                id="full-name"
+                                name="full_name"
+                                placeholder="שם פרטי ושם משפחה"
+                                class="input-field"
+                                autocomplete="name"
+                            >
+                            <div class="input-icon">📝</div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="password" class="input-label">סיסמה *</label>
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                placeholder="בחר סיסמה חזקה"
+                                class="input-field"
+                                required
+                                autocomplete="new-password"
+                            >
+                            <div class="password-toggle" onclick="togglePassword('password')">👁️</div>
+
+                            <div id="password-strength" class="password-strength">
+                                <div class="strength-bar">
+                                    <div id="strength-bar-fill" class="strength-bar-fill"></div>
+                                </div>
+                                <div id="strength-text" class="strength-text"></div>
+                            </div>
+
+                            <div class="password-requirements">
+                                <div class="requirement" id="req-length">
+                                    <span class="requirement-icon"></span>
+                                    <span>לפחות 12 תווים</span>
+                                </div>
+                                <div class="requirement" id="req-uppercase">
+                                    <span class="requirement-icon"></span>
+                                    <span>אות גדולה אחת לפחות (A-Z)</span>
+                                </div>
+                                <div class="requirement" id="req-lowercase">
+                                    <span class="requirement-icon"></span>
+                                    <span>אות קטנה אחת לפחות (a-z)</span>
+                                </div>
+                                <div class="requirement" id="req-number">
+                                    <span class="requirement-icon"></span>
+                                    <span>מספר אחד לפחות (0-9)</span>
+                                </div>
+                                <div class="requirement" id="req-special">
+                                    <span class="requirement-icon"></span>
+                                    <span>תו מיוחד אחד לפחות (!@#$%^&*)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="confirm-password" class="input-label">אימות סיסמה *</label>
+                            <input
+                                type="password"
+                                id="confirm-password"
+                                name="confirm_password"
+                                placeholder="הזן את הסיסמה שוב"
+                                class="input-field"
+                                required
+                                autocomplete="new-password"
+                            >
+                            <div class="password-toggle" onclick="togglePassword('confirm-password')">👁️</div>
+                        </div>
+
+                        <div id="error-message" class="alert alert-error" style="display:none;"></div>
+                        <div id="success-message" class="alert alert-success" style="display:none;"></div>
+
+                        <button type="submit" class="btn btn-primary btn-large" id="submit-btn">
+                            <span>צור חשבון מנהל</span>
+                            <span class="btn-arrow">←</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="security-badge">
+                <span class="badge-icon">🔒</span>
+                <span>חיבור מאובטח SSL</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tokenData = null;
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        // Toggle password visibility
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            field.type = field.type === 'password' ? 'text' : 'password';
+        }
+
+        // Password strength checker
+        function checkPasswordStrength(password) {
+            const requirements = {
+                length: password.length >= 12,
+                uppercase: /[A-Z]/.test(password),
+                lowercase: /[a-z]/.test(password),
+                number: /[0-9]/.test(password),
+                special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+            };
+
+            // Update requirement indicators
+            document.getElementById('req-length').classList.toggle('met', requirements.length);
+            document.getElementById('req-uppercase').classList.toggle('met', requirements.uppercase);
+            document.getElementById('req-lowercase').classList.toggle('met', requirements.lowercase);
+            document.getElementById('req-number').classList.toggle('met', requirements.number);
+            document.getElementById('req-special').classList.toggle('met', requirements.special);
+
+            const metCount = Object.values(requirements).filter(Boolean).length;
+            const strengthBar = document.getElementById('strength-bar-fill');
+            const strengthText = document.getElementById('strength-text');
+            const strengthContainer = document.getElementById('password-strength');
+
+            strengthContainer.classList.add('visible');
+
+            if (metCount < 3) {
+                strengthBar.className = 'strength-bar-fill strength-weak';
+                strengthText.textContent = 'חלשה';
+                return false;
+            } else if (metCount < 5) {
+                strengthBar.className = 'strength-bar-fill strength-medium';
+                strengthText.textContent = 'בינונית';
+                return false;
+            } else {
+                strengthBar.className = 'strength-bar-fill strength-strong';
+                strengthText.textContent = 'חזקה';
+                return true;
+            }
+        }
+
+        // Validate token on page load
+        async function validateToken() {
+            if (!token) {
+                showInvalidToken('לא נמצא קישור הרשמה. אנא בקש קישור חדש.');
+                return;
+            }
+
+            document.getElementById('loading-state').style.display = 'block';
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'validate_invite_token',
+                        token: token
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    tokenData = data.token;
+                    showRegistrationForm();
+                } else {
+                    showInvalidToken(data.message || 'הקישור אינו תקף או פג תוקפו');
+                }
+            } catch (error) {
+                console.error('Error validating token:', error);
+                showInvalidToken('שגיאה בבדיקת הקישור. נסה שוב מאוחר יותר.');
+            } finally {
+                document.getElementById('loading-state').style.display = 'none';
+            }
+        }
+
+        function showInvalidToken(message) {
+            document.getElementById('invalid-token-message').textContent = message;
+            document.getElementById('invalid-token-state').style.display = 'block';
+        }
+
+        function showRegistrationForm() {
+            document.getElementById('registration-form-container').style.display = 'block';
+
+            // Show token info
+            if (tokenData) {
+                document.getElementById('token-info').style.display = 'block';
+                document.getElementById('token-role').textContent = translateRole(tokenData.role);
+
+                if (tokenData.expires_at) {
+                    document.getElementById('token-expiry').style.display = 'block';
+                    document.getElementById('token-expiry-date').textContent =
+                        new Date(tokenData.expires_at).toLocaleString('he-IL');
+                }
+
+                // Pre-fill full name if available
+                if (tokenData.preset_full_name) {
+                    document.getElementById('full-name').value = tokenData.preset_full_name;
+                }
+            }
+        }
+
+        function translateRole(role) {
+            const roles = {
+                'admin': 'מנהל',
+                'super_admin': 'מנהל על',
+                'moderator': 'מפקח'
+            };
+            return roles[role] || role;
+        }
+
+        // Password strength monitoring
+        document.getElementById('password').addEventListener('input', (e) => {
+            checkPasswordStrength(e.target.value);
+        });
+
+        // Registration form submission
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const errorDiv = document.getElementById('error-message');
+            const successDiv = document.getElementById('success-message');
+            const submitBtn = document.getElementById('submit-btn');
+
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const fullName = document.getElementById('full-name').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                errorDiv.textContent = 'הסיסמאות אינן תואמות';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Validate password strength
+            if (!checkPasswordStrength(password)) {
+                errorDiv.textContent = 'הסיסמה אינה עומדת בדרישות המינימום';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="loading-spinner"></div><span>יוצר חשבון...</span>';
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'register_with_token',
+                        token: token,
+                        username: username,
+                        email: email,
+                        full_name: fullName,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successDiv.textContent = data.message || 'החשבון נוצר בהצלחה! מעביר לדף התחברות...';
+                    successDiv.style.display = 'block';
+
+                    // Redirect to login page after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 2000);
+                } else {
+                    errorDiv.textContent = data.message || 'שגיאה ביצירת החשבון';
+                    errorDiv.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<span>צור חשבון מנהל</span><span class="btn-arrow">←</span>';
+                }
+            } catch (error) {
+                console.error('Error registering:', error);
+                errorDiv.textContent = 'שגיאה בחיבור לשרת. נסה שוב מאוחר יותר.';
+                errorDiv.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>צור חשבון מנהל</span><span class="btn-arrow">←</span>';
+            }
+        });
+
+        // Validate token on page load
+        validateToken();
+    </script>
+</body>
+</html>
