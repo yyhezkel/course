@@ -135,8 +135,8 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('dashboardContent').style.display = 'block';
 
-            // Set user name
-            document.getElementById('userName').textContent = userData.tz || 'משתמש';
+            // Set user name - prefer full_name, fallback to tz
+            document.getElementById('userName').textContent = userData.full_name || userData.tz || 'משתמש';
 
             // Calculate stats
             const total = userTasks.length;
