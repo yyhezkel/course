@@ -4,10 +4,10 @@
 
 /* CSS Variables for easy customization */
 :root {
-    --primary-color: #6366f1;
-    --primary-dark: #4f46e5;
-    --primary-light: #818cf8;
-    --secondary-color: #8b5cf6;
+    --primary-color: #10b981;
+    --primary-dark: #059669;
+    --primary-light: #34d399;
+    --secondary-color: #14b8a6;
     --success-color: #10b981;
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
@@ -46,7 +46,7 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
     direction: rtl;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     min-height: 100vh;
     color: var(--gray-800);
     line-height: 1.6;
@@ -62,9 +62,9 @@ body {
     right: 0;
     bottom: 0;
     background:
-        radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 40% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%);
+        radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(20, 184, 166, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 20%, rgba(16, 185, 129, 0.1) 0%, transparent 50%);
     animation: backgroundMove 20s ease-in-out infinite alternate;
     pointer-events: none;
     z-index: 0;
@@ -225,7 +225,7 @@ body {
 
 .input-field:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
 .input-field::placeholder {
@@ -292,7 +292,7 @@ body {
 .form-step textarea:focus,
 .form-step select:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
 .form-step textarea {
@@ -366,7 +366,7 @@ body {
 
 .radio-group input[type="radio"]:checked + label {
     border-color: var(--primary-color);
-    background: rgba(99, 102, 241, 0.05);
+    background: rgba(16, 185, 129, 0.05);
 }
 
 /* Checkbox group styling */
@@ -424,7 +424,7 @@ body {
 
 .checkbox-group input[type="checkbox"]:checked + label {
     border-color: var(--primary-color);
-    background: rgba(99, 102, 241, 0.05);
+    background: rgba(16, 185, 129, 0.05);
 }
 
 /* ========================================
@@ -746,7 +746,7 @@ body {
 }
 
 .welcome-section {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: white;
     padding: 30px;
     border-radius: 15px;
@@ -782,7 +782,7 @@ body {
 .stat-card .stat-number {
     font-size: 36px;
     font-weight: bold;
-    color: #667eea;
+    color: #10b981;
     margin-bottom: 5px;
 }
 
@@ -816,7 +816,7 @@ body {
 
 .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
     transition: width 0.5s ease;
     display: flex;
     align-items: center;
@@ -844,7 +844,7 @@ body {
     margin-bottom: 15px;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
-    border-right: 4px solid #667eea;
+    border-right: 4px solid #10b981;
 }
 
 .task-card:hover {
@@ -1054,13 +1054,13 @@ body {
     background: #f8f9fa;
     padding: 20px;
     border-radius: 8px;
-    border-right: 4px solid #667eea;
+    border-right: 4px solid #10b981;
     margin-top: 20px;
 }
 
 .task-instructions h3 {
     margin-top: 0;
-    color: #667eea;
+    color: #10b981;
 }
 
 .materials-section {
@@ -1109,7 +1109,7 @@ body {
 }
 
 .material-link {
-    color: #667eea;
+    color: #10b981;
     text-decoration: none;
     font-size: 14px;
 }
@@ -1135,7 +1135,7 @@ body {
 }
 
 .action-btn {
-    background: #667eea;
+    background: #10b981;
     color: white;
     border: none;
     padding: 15px 30px;
@@ -1149,7 +1149,7 @@ body {
 }
 
 .action-btn:hover {
-    background: #5568d3;
+    background: #059669;
 }
 
 .action-btn:disabled {
@@ -1200,7 +1200,7 @@ body {
     display: block;
     width: 100%;
     padding: 10px;
-    border: 2px dashed #667eea;
+    border: 2px dashed #10b981;
     border-radius: 5px;
     background: white;
     cursor: pointer;
@@ -1250,7 +1250,7 @@ body {
 
 .file-download-btn {
     padding: 6px 12px;
-    background: #667eea;
+    background: #10b981;
     color: white;
     border: none;
     border-radius: 4px;
@@ -1260,7 +1260,7 @@ body {
 }
 
 .file-download-btn:hover {
-    background: #5568d3;
+    background: #059669;
 }
 
 .upload-progress {
@@ -1278,7 +1278,7 @@ body {
 
 .progress-bar-fill-small {
     height: 100%;
-    background: #667eea;
+    background: #10b981;
     transition: width 0.3s;
     display: flex;
     align-items: center;
@@ -1298,7 +1298,7 @@ body {
 }
 
 .back-link {
-    color: #667eea;
+    color: #10b981;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
@@ -1311,7 +1311,7 @@ body {
 }
 
 .profile-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: white;
     padding: 40px;
     border-radius: 15px;
@@ -1353,7 +1353,7 @@ body {
 .profile-section h2 {
     margin-top: 0;
     color: #333;
-    border-bottom: 2px solid #667eea;
+    border-bottom: 2px solid #10b981;
     padding-bottom: 10px;
 }
 
@@ -1391,7 +1391,7 @@ body {
 .stat-number {
     font-size: 32px;
     font-weight: bold;
-    color: #667eea;
+    color: #10b981;
     margin-bottom: 5px;
 }
 
