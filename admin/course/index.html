@@ -796,7 +796,7 @@
                 {
                     text: 'בטל',
                     class: 'btn-secondary',
-                    onclick: 'closeModal()'
+                    onclick: 'modalManager.close()'
                 },
                 {
                     text: 'הוסף תלמיד',
@@ -863,7 +863,7 @@
 
                 if (result.success) {
                     toast.success('תלמיד נוצר בהצלחה!');
-                    closeModal();
+                    modalManager.close();
                     loadUsers();
                 } else {
                     toast.error(result.message || 'שגיאה ביצירת תלמיד');
@@ -897,7 +897,7 @@
                 {
                     text: 'בטל',
                     class: 'btn-secondary',
-                    onclick: 'closeModal()'
+                    onclick: 'modalManager.close()'
                 },
                 {
                     text: 'ייבא תלמידים',
@@ -981,7 +981,7 @@
                 {
                     text: 'בטל',
                     class: 'btn-secondary',
-                    onclick: 'closeModal()'
+                    onclick: 'modalManager.close()'
                 },
                 {
                     text: 'שמור שינויים',
@@ -1014,7 +1014,7 @@
 
                 if (result.success) {
                     toast.success('תלמיד עודכן בהצלחה!');
-                    closeModal();
+                    modalManager.close();
                     loadUsers();
                 } else {
                     toast.error(result.message || 'שגיאה בעדכון תלמיד');
