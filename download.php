@@ -47,7 +47,17 @@ try {
             die('Access denied');
         }
 
-        $filepath = __DIR__ . '/' . $file['filepath'];
+        // Handle both old relative paths and new full URLs
+        $storedPath = $file['filepath'];
+        if (strpos($storedPath, 'https://') === 0) {
+            // New format: full URL - extract filename and construct server path
+            $filename_from_url = basename($storedPath);
+            $filepath = '/www/wwwroot/qr.bot4wa.com/files/kodkod-uplodes/task-submissions/' . $filename_from_url;
+        } else {
+            // Old format: relative path - use existing logic
+            $filepath = __DIR__ . '/' . $storedPath;
+        }
+
         $filename = $file['original_filename'];
         $mimeType = $file['mime_type'];
 
@@ -79,7 +89,17 @@ try {
             die('Access denied - task not assigned to you');
         }
 
-        $filepath = __DIR__ . '/' . $material['file_path'];
+        // Handle both old relative paths and new full URLs
+        $storedPath = $material['file_path'];
+        if (strpos($storedPath, 'https://') === 0) {
+            // New format: full URL - extract filename and construct server path
+            $filename_from_url = basename($storedPath);
+            $filepath = '/www/wwwroot/qr.bot4wa.com/files/kodkod-uplodes/' . $filename_from_url;
+        } else {
+            // Old format: relative path - use existing logic
+            $filepath = __DIR__ . '/' . $storedPath;
+        }
+
         $filename = $material['title'];
         $mimeType = mime_content_type($filepath);
 
