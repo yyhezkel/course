@@ -121,6 +121,11 @@ class ToastManager {
 // Create global toast instance
 const toast = new ToastManager();
 
+// Backward compatibility wrapper
+function showToast(message, type = 'info', duration = 4000) {
+    return toast.show(message, type, duration);
+}
+
 // ============================================
 // ENHANCED MODALS
 // ============================================
