@@ -19,13 +19,33 @@ class ToastManager {
             this.container = document.createElement('div');
             this.container.id = 'toast-container';
             this.container.className = 'toast-container';
-            document.body.appendChild(this.container);
+
+            // Ensure body exists before appending
+            if (document.body) {
+                document.body.appendChild(this.container);
+            } else {
+                // Wait for DOM to be ready
+                document.addEventListener('DOMContentLoaded', () => {
+                    document.body.appendChild(this.container);
+                });
+            }
         } else {
             this.container = document.getElementById('toast-container');
         }
     }
 
     show(message, type = 'info', duration = 4000) {
+        // Ensure container is ready
+        if (!this.container) {
+            this.init();
+        }
+
+        // If container still not ready, log error and return
+        if (!this.container || !this.container.parentElement) {
+            console.error('Toast container not ready');
+            return null;
+        }
+
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
 
