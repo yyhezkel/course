@@ -201,24 +201,79 @@ class ModalManager {
     }
 
     confirm(title, message, onConfirm, onCancel) {
-        this.show(title, `<p>${message}</p>`, [
-            {
-                text: 'ביטול',
-                class: 'btn-secondary',
-                onclick: () => {
-                    this.close();
-                    if (onCancel) onCancel();
-                }
-            },
-            {
-                text: 'אישור',
-                class: 'btn-primary',
-                onclick: () => {
-                    this.close();
-                    if (onConfirm) onConfirm();
-                }
+        // Close existing modal
+        if (this.currentModal) {
+            this.close();
+        }
+
+        // Create modal HTML without onclick handlers
+        const modalHtml = `
+            <div class="modal-overlay" id="modalOverlay">
+                <div class="modal-content" onclick="event.stopPropagation()">
+                    <div class="modal-header">
+                        <h2 class="modal-title">${title}</h2>
+                        <button class="modal-close-btn" id="modalCloseBtn">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>${message}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="modalCancelBtn">ביטול</button>
+                        <button class="btn btn-primary" id="modalConfirmBtn">אישור</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Add to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        this.currentModal = document.getElementById('modalOverlay');
+
+        // Add event listeners for buttons
+        const confirmBtn = document.getElementById('modalConfirmBtn');
+        const cancelBtn = document.getElementById('modalCancelBtn');
+        const closeBtn = document.getElementById('modalCloseBtn');
+
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', async () => {
+                this.close();
+                if (onConfirm) await onConfirm();
+            });
+        }
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                this.close();
+                if (onCancel) onCancel();
+            });
+        }
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.close();
+                if (onCancel) onCancel();
+            });
+        }
+
+        // Close on overlay click
+        this.currentModal.addEventListener('click', (e) => {
+            if (e.target === this.currentModal) {
+                this.close();
+                if (onCancel) onCancel();
             }
-        ]);
+        });
+
+        // Close on escape key
+        this.escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.close();
+                if (onCancel) onCancel();
+            }
+        };
+        document.addEventListener('keydown', this.escapeHandler);
+
+        return this.currentModal;
     }
 }
 
