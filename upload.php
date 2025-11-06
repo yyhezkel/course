@@ -7,6 +7,12 @@
 session_start();
 require_once __DIR__ . '/config.php';
 
+// Disable HTML error output to ensure JSON responses
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/error_log.txt');
+
 header('Content-Type: application/json');
 
 // Check authentication
@@ -16,8 +22,40 @@ if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
     exit;
 }
 
-$db = getDbConnection();
+try {
+    $db = getDbConnection();
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Database connection error']);
+    exit;
+}
+
 $userId = $_SESSION['user_id'];
+
+// Ensure task_submissions table exists
+try {
+    $result = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='task_submissions'");
+    if (!$result->fetch()) {
+        // Create the table if it doesn't exist
+        $db->exec("
+            CREATE TABLE task_submissions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_task_id INTEGER NOT NULL,
+                filename TEXT NOT NULL,
+                original_filename TEXT NOT NULL,
+                filepath TEXT NOT NULL,
+                filesize INTEGER NOT NULL,
+                mime_type TEXT NOT NULL,
+                description TEXT,
+                uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_task_id) REFERENCES user_tasks(id) ON DELETE CASCADE
+            )
+        ");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_task_submissions_user_task ON task_submissions(user_task_id)");
+    }
+} catch (Exception $e) {
+    error_log("Table creation error: " . $e->getMessage());
+}
 
 // Create uploads directory if it doesn't exist
 $uploadsDir = __DIR__ . '/uploads';
