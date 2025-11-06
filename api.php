@@ -196,7 +196,7 @@ if ($action === 'login') {
         }
 
         // Get user by tz
-        $stmt = $db->prepare("SELECT id, is_blocked, failed_attempts, id_type FROM users WHERE tz = ?");
+        $stmt = $db->prepare("SELECT id, is_blocked, failed_attempts, id_type, username, password_hash FROM users WHERE tz = ?");
         $stmt->execute([$tz]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -207,6 +207,17 @@ if ($action === 'login') {
                 http_response_code(400);
                 $expectedType = $expectedLength === 9 ? 'תעודת זהות (9 ספרות)' : 'מספר אישי (7 ספרות)';
                 echo json_encode(['success' => false, 'message' => "מספר זה רשום כ-$expectedType"]);
+                exit;
+            }
+
+            // Check if user has credentials set - if yes, they must use username/password
+            if (!empty($user['username']) && !empty($user['password_hash'])) {
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'עבור חשבון זה יש להתחבר באמצעות שם משתמש וסיסמה.',
+                    'require_credentials' => true
+                ]);
                 exit;
             }
         }
@@ -242,6 +253,22 @@ if ($action === 'login') {
         $_SESSION['authenticated'] = true;
         $_SESSION['login_time'] = time();
         $_SESSION['form_id'] = $formId; // Store assigned form in session
+
+        // Check if user needs to setup credentials (only for number-based login)
+        $redirectTo = 'dashboard.html';
+        $loginMethod = !empty($username) && !empty($password) ? 'credentials' : 'number';
+
+        if ($loginMethod === 'number') {
+            // User logged in with number only - check if they have credentials set
+            $stmt = $db->prepare("SELECT username, password_hash FROM users WHERE id = ?");
+            $stmt->execute([$user['id']]);
+            $credentialsCheck = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (empty($credentialsCheck['username']) || empty($credentialsCheck['password_hash'])) {
+                // No credentials set, redirect to setup page
+                $redirectTo = 'setup-credentials.html';
+            }
+        }
 
         // 5. שליפת נתונים קודמים - גם answer_value וגם answer_json
         $stmt = $db->prepare("SELECT question_id, answer_value, answer_json FROM form_responses WHERE user_id = ?");
@@ -330,7 +357,7 @@ if ($action === 'login') {
         echo json_encode([
             'success' => true,
             'user_id' => $user['id'],
-            'redirect_to' => 'dashboard.html', // Redirect to dashboard instead of form
+            'redirect_to' => $redirectTo,
             'message' => 'כניסה מאושרת.'
         ]);
         exit;
@@ -1222,6 +1249,122 @@ if ($action === 'update_password') {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון סיסמה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// === 13. בדיקה האם משתמש צריך להגדיר פרטי התחברות (CHECK_NEEDS_CREDENTIAL_SETUP) ===
+if ($action === 'check_needs_credential_setup') {
+    // Check authentication
+    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'נדרש אימות.']);
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+
+    try {
+        $stmt = $db->prepare("SELECT username, password_hash FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user) {
+            // User needs setup if either username or password is not set
+            $needsSetup = empty($user['username']) || empty($user['password_hash']);
+
+            echo json_encode([
+                'success' => true,
+                'needs_setup' => $needsSetup
+            ]);
+        } else {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'משתמש לא נמצא.']);
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בבדיקת סטטוס משתמש.']);
+    }
+    exit;
+}
+
+// === 14. הגדרת שם משתמש וסיסמה (SETUP_CREDENTIALS) ===
+if ($action === 'setup_credentials') {
+    // Check authentication
+    if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !== true) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'נדרש אימות.']);
+        exit;
+    }
+
+    $userId = $_SESSION['user_id'];
+    $username = $input['username'] ?? '';
+    $password = $input['password'] ?? '';
+
+    // Validate username
+    if (empty($username) || strlen($username) < 3) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'שם המשתמש חייב להכיל לפחות 3 תווים.']);
+        exit;
+    }
+
+    // Validate password
+    if (empty($password) || strlen($password) < 6) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'הסיסמה חייבת להכיל לפחות 6 תווים.']);
+        exit;
+    }
+
+    // Validate username format - alphanumeric, underscore, and Hebrew characters
+    if (!preg_match('/^[a-zA-Z0-9_\x{0590}-\x{05FF}]+$/u', $username)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'שם המשתמש יכול להכיל רק אותיות, מספרים וקו תחתון.']);
+        exit;
+    }
+
+    try {
+        // Check if this user already has credentials
+        $stmt = $db->prepare("SELECT username, password_hash FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'משתמש לא נמצא.']);
+            exit;
+        }
+
+        // Check if credentials are already set
+        if (!empty($user['username']) && !empty($user['password_hash'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'פרטי התחברות כבר הוגדרו עבור משתמש זה.']);
+            exit;
+        }
+
+        // Check if username is already taken by another user
+        $stmt = $db->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
+        $stmt->execute([$username, $userId]);
+        if ($stmt->fetch()) {
+            http_response_code(409);
+            echo json_encode(['success' => false, 'message' => 'שם משתמש זה כבר תפוס. נא לבחור שם משתמש אחר.']);
+            exit;
+        }
+
+        // Hash password
+        $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+
+        // Update user with username and password
+        $stmt = $db->prepare("UPDATE users SET username = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+        $stmt->execute([$username, $passwordHash, $userId]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'פרטי ההתחברות נשמרו בהצלחה!',
+            'username' => $username
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בשמירת פרטי התחברות: ' . $e->getMessage()]);
     }
     exit;
 }
