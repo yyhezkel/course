@@ -36,7 +36,7 @@ if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
 }
 
 $file = $_FILES['file'];
-$uploadDir = __DIR__ . '/../../uploads/materials/';
+$uploadDir = '/www/wwwroot/qr.bot4wa.com/files/kodkod-uplodes/';
 
 // Create upload directory if it doesn't exist
 if (!is_dir($uploadDir)) {
@@ -178,7 +178,7 @@ echo json_encode([
     'file' => [
         'original_name' => $file['name'],
         'unique_name' => $uniqueFilename,
-        'file_path' => 'uploads/materials/' . $uniqueFilename,
+        'file_path' => 'https://qr.bot4wa.com/files/kodkod-uplodes/' . $uniqueFilename,
         'mime_type' => $mimeType,
         'size' => $file['size'],
         'material_type' => $materialType
