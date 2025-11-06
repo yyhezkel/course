@@ -1469,6 +1469,17 @@ if ($action === 'get_all_users_with_progress') {
 
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Fetch tasks for each user
+        foreach ($users as &$user) {
+            $tasksStmt = $db->prepare("
+                SELECT task_id, status
+                FROM user_tasks
+                WHERE user_id = ?
+            ");
+            $tasksStmt->execute([$user['id']]);
+            $user['tasks'] = $tasksStmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
         echo json_encode([
             'success' => true,
             'users' => $users

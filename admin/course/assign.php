@@ -263,7 +263,7 @@
                                onchange="updateSelectedCount()"
                                ${hasTask ? 'disabled' : ''}>
                         <div style="flex: 1;">
-                            <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${user.full_name || user.tz}</div>
+                            <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${user.full_name && user.full_name.trim() ? user.full_name : user.tz}</div>
                             <div style="font-size: 13px; color: #666;">ת.ז: ${user.tz}</div>
                             ${hasTask ? '<div style="font-size: 12px; color: #ff9800; margin-top: 8px;">⚠️ משימה כבר הוקצתה</div>' : ''}
                         </div>
