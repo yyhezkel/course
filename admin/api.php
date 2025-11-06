@@ -454,6 +454,78 @@ if ($action === 'batch_update_users') {
     exit;
 }
 
+if ($action === 'bulk_update_users_fields') {
+    try {
+        $updates = $input['updates'] ?? [];
+
+        if (empty($updates) || !is_array($updates)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'רשימת עדכונים נדרשת']);
+            exit;
+        }
+
+        $db->beginTransaction();
+        $successCount = 0;
+
+        foreach ($updates as $update) {
+            $userId = $update['user_id'] ?? null;
+            if (!$userId) continue;
+
+            $setParts = [];
+            $params = [];
+
+            // Build UPDATE query dynamically based on provided fields
+            if (isset($update['full_name'])) {
+                $setParts[] = "full_name = ?";
+                $params[] = $update['full_name'];
+            }
+            if (isset($update['email'])) {
+                $setParts[] = "email = ?";
+                $params[] = $update['email'];
+            }
+            if (isset($update['phone'])) {
+                $setParts[] = "phone = ?";
+                $params[] = $update['phone'];
+            }
+            if (isset($update['is_active'])) {
+                $isActive = (int)$update['is_active'];
+                $setParts[] = "is_blocked = ?";
+                $params[] = $isActive === 1 ? 0 : 1; // is_blocked is inverse of is_active
+            }
+
+            if (empty($setParts)) continue;
+
+            $setParts[] = "updated_at = datetime('now')";
+            $params[] = $userId;
+
+            $sql = "UPDATE users SET " . implode(', ', $setParts) . " WHERE id = ?";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+
+            if ($stmt->rowCount() > 0) {
+                $successCount++;
+            }
+        }
+
+        $db->commit();
+
+        // Log activity
+        logActivity($db, $_SESSION['admin_user_id'], 'bulk_edit', 'user', null, null, [
+            'count' => $successCount,
+            'total' => count($updates)
+        ]);
+
+        echo json_encode(['success' => true, 'message' => "$successCount משתמשים עודכנו בהצלחה"]);
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון משתמשים: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 if ($action === 'batch_delete_users') {
     try {
         $userIds = $input['user_ids'] ?? [];
