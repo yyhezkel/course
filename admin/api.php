@@ -4,6 +4,12 @@
  * Handles all admin panel API requests
  */
 
+// Disable error display to prevent HTML output before JSON
+// Errors will still be logged to the error log
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+error_reporting(E_ALL);
+
 session_start();
 
 require_once __DIR__ . '/../config.php';

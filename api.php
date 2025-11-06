@@ -10,9 +10,10 @@
 // התחלת Session לאימות מבוסס-Session
 session_start();
 
-// Enable error logging for debugging
+// Enable error logging for debugging but disable display to prevent HTML output before JSON
 error_reporting(E_ALL);
-ini_set('log_errors', 1);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 ini_set('error_log', __DIR__ . '/error_log.txt');
 
 // Check if required files exist before including
