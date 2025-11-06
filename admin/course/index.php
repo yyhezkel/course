@@ -211,6 +211,13 @@
 
                 if (data.success) {
                     allUsers = data.users;
+
+                    // Show migration warning if needed (only once per session)
+                    if (data.migration_needed && !sessionStorage.getItem('migration_warning_shown')) {
+                        console.warn('Archive feature needs migration: run admin/migrate_archive.php');
+                        sessionStorage.setItem('migration_warning_shown', 'true');
+                    }
+
                     filterAndRenderUsers();
                 } else {
                     throw new Error(data.message || 'Failed to load users');
