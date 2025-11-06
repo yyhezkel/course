@@ -116,13 +116,27 @@
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="חיפוש תלמיד לפי שם, ת.ז. או מספר אישי...">
             </div>
-            <div class="filter-buttons">
-                <button class="filter-btn active" data-filter="all">הכל</button>
-                <button class="filter-btn" data-filter="active">פעילים</button>
-                <button class="filter-btn" data-filter="inactive">לא פעילים</button>
-                <button class="filter-btn" data-filter="completed">סיימו</button>
-                <button class="filter-btn" data-filter="in-progress">בתהליך</button>
-                <button class="filter-btn" data-filter="not-started">לא התחילו</button>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <!-- View Toggle -->
+                <div class="view-toggle">
+                    <button class="view-toggle-btn active" data-view="cards" onclick="switchView('cards')">
+                        <span>🃏</span>
+                        <span>כרטיסים</span>
+                    </button>
+                    <button class="view-toggle-btn" data-view="table" onclick="switchView('table')">
+                        <span>📊</span>
+                        <span>טבלה</span>
+                    </button>
+                </div>
+
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">הכל</button>
+                    <button class="filter-btn" data-filter="active">פעילים</button>
+                    <button class="filter-btn" data-filter="inactive">לא פעילים</button>
+                    <button class="filter-btn" data-filter="completed">סיימו</button>
+                    <button class="filter-btn" data-filter="in-progress">בתהליך</button>
+                    <button class="filter-btn" data-filter="not-started">לא התחילו</button>
+                </div>
             </div>
         </div>
 
@@ -132,8 +146,40 @@
             <p>טוען נתונים...</p>
         </div>
 
-        <!-- Users Grid -->
+        <!-- Users Grid (Card View) -->
         <div id="usersGrid" class="users-grid" style="display: none;"></div>
+
+        <!-- Users Table (Table View) -->
+        <div id="usersTable" class="users-table-container">
+            <div class="users-table-wrapper">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" class="select-all-checkbox" onchange="toggleSelectAll(this.checked)"></th>
+                            <th>ת.ז.</th>
+                            <th>שם מלא</th>
+                            <th>אימייל</th>
+                            <th>טלפון</th>
+                            <th>סטטוס</th>
+                            <th>משימות</th>
+                            <th>התקדמות</th>
+                            <th>כניסה אחרונה</th>
+                            <th>פעולות</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <!-- Table rows will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Bulk Save Button -->
+        <button id="bulkSaveBtn" class="bulk-save-btn" onclick="saveBulkEdits()">
+            <span>💾</span>
+            <span>שמור שינויים</span>
+            <span class="bulk-save-count" id="bulkSaveCount">0</span>
+        </button>
         </div>
     </div>
 
@@ -158,12 +204,46 @@
         let allUsers = [];
         let currentFilter = 'all';
         let currentSort = { field: 'id', direction: 'desc' };
+        let currentView = 'cards';
+        let editedUsers = new Map(); // Track edited users: userId -> {field: value}
 
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
             loadUsers();
             setupEventListeners();
         });
+
+        // ========================================
+        // View Switching
+        // ========================================
+
+        function switchView(view) {
+            currentView = view;
+
+            // Update toggle buttons
+            document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+                if (btn.dataset.view === view) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Show/hide views
+            const grid = document.getElementById('usersGrid');
+            const table = document.getElementById('usersTable');
+
+            if (view === 'cards') {
+                grid.style.display = 'grid';
+                table.classList.remove('active');
+            } else {
+                grid.style.display = 'none';
+                table.classList.add('active');
+            }
+
+            // Re-render current data
+            filterAndRenderUsers();
+        }
 
         // Sort menu toggle
         function toggleSortMenu() {
@@ -340,7 +420,12 @@
                 }
             });
 
-            renderUsers(filtered);
+            // Render based on current view
+            if (currentView === 'cards') {
+                renderUsers(filtered);
+            } else {
+                renderTable(filtered);
+            }
         }
 
         function renderUsers(users) {
@@ -433,6 +518,247 @@
 
         function assignTask(userId) {
             window.location.href = `assign.html`;
+        }
+
+        // ========================================
+        // Table View Rendering
+        // ========================================
+
+        function renderTable(users) {
+            document.getElementById('loading').style.display = 'none';
+            const tbody = document.getElementById('usersTableBody');
+
+            if (users.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="10" style="text-align: center; padding: 40px;">
+                            <div style="color: var(--gray-500);">לא נמצאו תלמידים</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => {
+                const progressPercentage = user.total_tasks > 0
+                    ? Math.round((user.completed_tasks / user.total_tasks) * 100)
+                    : 0;
+
+                const isActive = !user.is_blocked;
+                const statusBadge = isActive ? 'active' : 'inactive';
+                const statusText = isActive ? 'פעיל' : 'לא פעיל';
+                const lastLogin = user.last_login ? new Date(user.last_login).toLocaleDateString('he-IL') : '-';
+
+                return `
+                    <tr data-user-id="${user.id}">
+                        <td><input type="checkbox" class="table-row-checkbox" data-user-id="${user.id}"></td>
+                        <td>${user.tz}</td>
+                        <td class="editable" data-field="full_name" data-user-id="${user.id}" onclick="makeEditable(this)">
+                            ${user.full_name || '-'}
+                        </td>
+                        <td class="editable" data-field="email" data-user-id="${user.id}" onclick="makeEditable(this)">
+                            ${user.email || '-'}
+                        </td>
+                        <td class="editable" data-field="phone" data-user-id="${user.id}" onclick="makeEditable(this)">
+                            ${user.phone || '-'}
+                        </td>
+                        <td class="editable" data-field="is_active" data-user-id="${user.id}" onclick="makeEditableStatus(this)">
+                            <span class="table-status-badge ${statusBadge}">${statusText}</span>
+                        </td>
+                        <td>${user.total_tasks}</td>
+                        <td>
+                            <div class="table-progress">
+                                <div class="table-progress-bar">
+                                    <div class="table-progress-fill" style="width: ${progressPercentage}%"></div>
+                                </div>
+                                <span class="table-progress-text">${progressPercentage}%</span>
+                            </div>
+                        </td>
+                        <td>${lastLogin}</td>
+                        <td>
+                            <div class="table-actions">
+                                <button class="table-action-btn" onclick="openUserDetail(${user.id})" title="פרטים">
+                                    👁️
+                                </button>
+                                <button class="table-action-btn" onclick="showEditStudentModal(${user.id})" title="ערוך">
+                                    ✏️
+                                </button>
+                                <button class="table-action-btn danger" onclick="toggleStudentStatus(${user.id}, ${user.is_blocked})" title="${isActive ? 'השבת' : 'הפעל'}">
+                                    ${isActive ? '🔒' : '🔓'}
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Make table cell editable (text input)
+        function makeEditable(cell) {
+            if (cell.classList.contains('editing')) return;
+
+            const userId = parseInt(cell.dataset.userId);
+            const field = cell.dataset.field;
+            const currentValue = cell.textContent.trim();
+
+            cell.classList.add('editing');
+            const originalContent = cell.innerHTML;
+
+            cell.innerHTML = `<input type="text" class="table-input" value="${currentValue === '-' ? '' : currentValue}"
+                                     onblur="saveEdit(this, ${userId}, '${field}')"
+                                     onkeydown="if(event.key==='Enter') this.blur(); if(event.key==='Escape') cancelEdit(this, '${originalContent}')"
+                                     autofocus>`;
+            cell.querySelector('input').focus();
+        }
+
+        // Make status cell editable (dropdown)
+        function makeEditableStatus(cell) {
+            if (cell.classList.contains('editing')) return;
+
+            const userId = parseInt(cell.dataset.userId);
+            const user = allUsers.find(u => u.id === userId);
+            const currentValue = !user.is_blocked ? 1 : 0;
+
+            cell.classList.add('editing');
+            const originalContent = cell.innerHTML;
+
+            cell.innerHTML = `<select class="table-select"
+                                      onblur="saveEditStatus(this, ${userId})"
+                                      onchange="this.blur()"
+                                      autofocus>
+                                <option value="1" ${currentValue === 1 ? 'selected' : ''}>פעיל</option>
+                                <option value="0" ${currentValue === 0 ? 'selected' : ''}>לא פעיל</option>
+                              </select>`;
+            cell.querySelector('select').focus();
+        }
+
+        // Save edited value
+        function saveEdit(input, userId, field) {
+            const cell = input.parentElement;
+            const newValue = input.value.trim();
+
+            // Track the edit
+            if (!editedUsers.has(userId)) {
+                editedUsers.set(userId, {});
+            }
+            editedUsers.get(userId)[field] = newValue;
+
+            // Update display
+            cell.classList.remove('editing');
+            cell.textContent = newValue || '-';
+
+            // Mark row as edited
+            cell.closest('tr').classList.add('editing');
+
+            // Show bulk save button
+            updateBulkSaveButton();
+        }
+
+        // Save status edit
+        function saveEditStatus(select, userId) {
+            const cell = select.parentElement;
+            const newValue = parseInt(select.value);
+
+            // Track the edit
+            if (!editedUsers.has(userId)) {
+                editedUsers.set(userId, {});
+            }
+            editedUsers.get(userId).is_active = newValue;
+
+            // Update display
+            cell.classList.remove('editing');
+            const isActive = newValue === 1;
+            const statusBadge = isActive ? 'active' : 'inactive';
+            const statusText = isActive ? 'פעיל' : 'לא פעיל';
+            cell.innerHTML = `<span class="table-status-badge ${statusBadge}">${statusText}</span>`;
+
+            // Mark row as edited
+            cell.closest('tr').classList.add('editing');
+
+            // Show bulk save button
+            updateBulkSaveButton();
+        }
+
+        // Cancel edit
+        function cancelEdit(input, originalContent) {
+            const cell = input.parentElement;
+            cell.classList.remove('editing');
+            cell.innerHTML = originalContent;
+        }
+
+        // Update bulk save button visibility
+        function updateBulkSaveButton() {
+            const btn = document.getElementById('bulkSaveBtn');
+            const count = document.getElementById('bulkSaveCount');
+
+            if (editedUsers.size > 0) {
+                btn.classList.add('visible');
+                count.textContent = editedUsers.size;
+            } else {
+                btn.classList.remove('visible');
+            }
+        }
+
+        // Select/Deselect all checkboxes
+        function toggleSelectAll(checked) {
+            document.querySelectorAll('.table-row-checkbox').forEach(checkbox => {
+                checkbox.checked = checked;
+                const row = checkbox.closest('tr');
+                if (checked) {
+                    row.classList.add('selected');
+                } else {
+                    row.classList.remove('selected');
+                }
+            });
+        }
+
+        // Bulk Save Edits
+        async function saveBulkEdits() {
+            if (editedUsers.size === 0) {
+                toast.warning('אין שינויים לשמירה');
+                return;
+            }
+
+            const updates = [];
+            editedUsers.forEach((fields, userId) => {
+                updates.push({
+                    user_id: userId,
+                    ...fields
+                });
+            });
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'bulk_update_users_fields',
+                        updates: updates
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    toast.success(`${editedUsers.size} תלמידים עודכנו בהצלחה!`);
+                    editedUsers.clear();
+                    updateBulkSaveButton();
+
+                    // Remove editing class from rows
+                    document.querySelectorAll('tr.editing').forEach(row => {
+                        row.classList.remove('editing');
+                    });
+
+                    // Reload users
+                    loadUsers();
+                } else {
+                    toast.error(result.message || 'שגיאה בעדכון תלמידים');
+                }
+            } catch (error) {
+                console.error('Error saving bulk edits:', error);
+                toast.error('שגיאה בשמירת שינויים');
+            }
         }
 
         // ========================================
