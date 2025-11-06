@@ -44,7 +44,8 @@ class UserComponent extends BaseComponent {
                 $this->sendError(404, 'משתמש לא נמצא.');
             }
         } catch (Exception $e) {
-            $this->sendError(500, 'שגיאה בשליפת נתוני משתמש.');
+            error_log("getUserInfo error: " . $e->getMessage() . " | User ID: " . $userId);
+            $this->sendError(500, 'שגיאה בשליפת נתוני משתמש: ' . $e->getMessage());
         }
     }
 
