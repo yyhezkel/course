@@ -145,6 +145,44 @@
 
         <div id="alertContainer"></div>
 
+        <!-- Profile Photo Section -->
+        <div class="settings-section">
+            <h2>תמונת פרופיל</h2>
+
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div id="photoPreview" style="display: inline-block; position: relative;">
+                    <img id="profilePhotoImg" src="" alt="תמונת פרופיל"
+                         style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 3px solid #e5e7eb; display: none;">
+                    <div id="profilePhotoPlaceholder"
+                         style="width: 150px; height: 150px; border-radius: 50%; background: #e5e7eb; display: flex; align-items: center; justify-content: center; font-size: 48px; color: #6b7280; font-weight: bold;">
+                        ??
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>📸 טיפ:</strong> העלה תמונת פרופיל כדי להתאים אישית את החשבון שלך.
+                תמונות בפורמט JPG, PNG, GIF או WEBP עד 5MB.
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">בחר תמונה חדשה</label>
+                <input type="file" id="photoFileInput" class="form-input" accept="image/jpeg,image/png,image/gif,image/webp">
+                <div class="form-hint">
+                    תמונה בפורמט JPG, PNG, GIF או WEBP, עד 5MB
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="uploadProfilePhoto()" class="btn btn-primary" id="uploadPhotoBtn" disabled>
+                    העלה תמונה
+                </button>
+                <button onclick="removeProfilePhoto()" class="btn btn-secondary" id="removePhotoBtn" style="display: none;">
+                    הסר תמונה
+                </button>
+            </div>
+        </div>
+
         <!-- Username Section -->
         <div class="settings-section">
             <h2>שם משתמש</h2>
@@ -267,12 +305,157 @@
                 if (data.success) {
                     userData = data.user;
                     displayCurrentUsername();
+                    displayProfilePhoto();
                 } else {
                     throw new Error(data.message || 'Failed to load user data');
                 }
             } catch (error) {
                 console.error('Error loading user data:', error);
                 showAlert('error', 'שגיאה בטעינת נתוני משתמש');
+            }
+        }
+
+        function displayProfilePhoto() {
+            const photoImg = document.getElementById('profilePhotoImg');
+            const photoPlaceholder = document.getElementById('profilePhotoPlaceholder');
+            const removeBtn = document.getElementById('removePhotoBtn');
+
+            if (userData && userData.profile_photo) {
+                photoImg.src = userData.profile_photo;
+                photoImg.style.display = 'block';
+                photoPlaceholder.style.display = 'none';
+                removeBtn.style.display = 'inline-block';
+            } else {
+                photoImg.style.display = 'none';
+                photoPlaceholder.style.display = 'flex';
+                removeBtn.style.display = 'none';
+
+                // Show initials if available
+                let initials = '??';
+                if (userData && userData.full_name) {
+                    const names = userData.full_name.split(' ');
+                    initials = names.map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
+                } else if (userData && userData.tz) {
+                    initials = userData.tz.substring(0, 2);
+                }
+                photoPlaceholder.textContent = initials;
+            }
+        }
+
+        // Enable upload button when file is selected
+        document.getElementById('photoFileInput').addEventListener('change', function(e) {
+            const uploadBtn = document.getElementById('uploadPhotoBtn');
+            const file = e.target.files[0];
+
+            if (file) {
+                // Validate file size (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    showAlert('error', 'התמונה גדולה מדי. מקסימום 5MB');
+                    e.target.value = '';
+                    uploadBtn.disabled = true;
+                    return;
+                }
+
+                // Validate file type
+                const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                if (!validTypes.includes(file.type)) {
+                    showAlert('error', 'סוג קובץ לא נתמך. אנא בחר תמונה (JPG, PNG, GIF, WEBP)');
+                    e.target.value = '';
+                    uploadBtn.disabled = true;
+                    return;
+                }
+
+                // Preview the image
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const photoImg = document.getElementById('profilePhotoImg');
+                    const photoPlaceholder = document.getElementById('profilePhotoPlaceholder');
+                    photoImg.src = event.target.result;
+                    photoImg.style.display = 'block';
+                    photoPlaceholder.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+
+                uploadBtn.disabled = false;
+            } else {
+                uploadBtn.disabled = true;
+            }
+        });
+
+        async function uploadProfilePhoto() {
+            const fileInput = document.getElementById('photoFileInput');
+            const uploadBtn = document.getElementById('uploadPhotoBtn');
+
+            if (!fileInput.files || !fileInput.files[0]) {
+                showAlert('error', 'אנא בחר תמונה להעלאה');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Disable button during upload
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'מעלה...';
+
+            try {
+                const response = await fetch('upload_profile_photo.php', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('success', '✅ תמונת הפרופיל עודכנה בהצלחה!');
+                    userData.profile_photo = data.photo_url;
+                    displayProfilePhoto();
+                    fileInput.value = '';
+                } else {
+                    showAlert('error', data.message || 'שגיאה בהעלאת התמונה');
+                    // Restore previous photo
+                    displayProfilePhoto();
+                }
+            } catch (error) {
+                console.error('Error uploading photo:', error);
+                showAlert('error', 'שגיאה בהעלאת התמונה');
+                // Restore previous photo
+                displayProfilePhoto();
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'העלה תמונה';
+            }
+        }
+
+        async function removeProfilePhoto() {
+            if (!confirm('האם אתה בטוח שברצונך להסיר את תמונת הפרופיל?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'remove_profile_photo'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('success', '✅ תמונת הפרופיל הוסרה בהצלחה');
+                    userData.profile_photo = null;
+                    displayProfilePhoto();
+                } else {
+                    showAlert('error', data.message || 'שגיאה בהסרת התמונה');
+                }
+            } catch (error) {
+                console.error('Error removing photo:', error);
+                showAlert('error', 'שגיאה בהסרת התמונה');
             }
         }
 

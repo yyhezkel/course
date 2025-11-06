@@ -18,6 +18,8 @@ class UserComponent extends BaseComponent {
                 return $this->setupCredentials();
             case 'check_needs_credential_setup':
                 return $this->checkNeedsCredentialSetup();
+            case 'remove_profile_photo':
+                return $this->removeProfilePhoto();
             default:
                 $this->sendError(404, 'פעולה לא נתמכת');
         }
@@ -32,7 +34,7 @@ class UserComponent extends BaseComponent {
         $userId = $this->session['user_id'];
 
         try {
-            $stmt = $this->db->prepare("SELECT id, tz, full_name, username, id_type, last_login FROM users WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT id, tz, full_name, username, id_type, last_login, profile_photo FROM users WHERE id = ?");
             $stmt->execute([$userId]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -182,6 +184,42 @@ class UserComponent extends BaseComponent {
             }
         } catch (Exception $e) {
             $this->sendError(500, 'שגיאה בבדיקת סטטוס משתמש.');
+        }
+    }
+
+    /**
+     * Remove profile photo
+     */
+    private function removeProfilePhoto() {
+        $this->requireAuth();
+
+        $userId = $this->session['user_id'];
+
+        try {
+            // Get current photo URL to delete the file
+            $stmt = $this->db->prepare("SELECT profile_photo FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $photoUrl = $stmt->fetchColumn();
+
+            if ($photoUrl) {
+                // Extract filename from URL and delete file
+                $filename = basename($photoUrl);
+                $uploadDir = '/www/wwwroot/qr.bot4wa.com/files/kodkod-uplodes/profile-photos/';
+                $filePath = $uploadDir . $filename;
+
+                // Delete file if it exists
+                if (file_exists($filePath)) {
+                    @unlink($filePath);
+                }
+            }
+
+            // Remove photo from database
+            $stmt = $this->db->prepare("UPDATE users SET profile_photo = NULL WHERE id = ?");
+            $stmt->execute([$userId]);
+
+            $this->sendSuccess([], 'תמונת הפרופיל הוסרה בהצלחה');
+        } catch (Exception $e) {
+            $this->sendError(500, 'שגיאה בהסרת תמונת פרופיל: ' . $e->getMessage());
         }
     }
 }

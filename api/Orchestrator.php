@@ -41,6 +41,7 @@ class Orchestrator {
             'update_password' => 'UserComponent',
             'setup_credentials' => 'UserComponent',
             'check_needs_credential_setup' => 'UserComponent',
+            'remove_profile_photo' => 'UserComponent',
 
             // Task actions
             'get_dashboard' => 'TaskComponent',
