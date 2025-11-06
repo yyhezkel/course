@@ -10,6 +10,24 @@
 // התחלת Session לאימות מבוסס-Session
 session_start();
 
+// Enable error logging for debugging
+error_reporting(E_ALL);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/error_log.txt');
+
+// Check if required files exist before including
+if (!file_exists(__DIR__ . '/config.php')) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Configuration file not found']);
+    exit;
+}
+
+if (!file_exists(__DIR__ . '/api/Orchestrator.php')) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Orchestrator file not found']);
+    exit;
+}
+
 require_once 'config.php';
 require_once __DIR__ . '/api/Orchestrator.php';
 
@@ -67,14 +85,30 @@ try {
     $orchestrator->route($action);
 
 } catch (Exception $e) {
-    // Log the error
-    error_log("API Error: " . $e->getMessage() . " | Action: $action");
+    // Log the error with full details
+    $errorDetails = "API Error: " . $e->getMessage() .
+                   " | Action: $action" .
+                   " | File: " . $e->getFile() .
+                   " | Line: " . $e->getLine();
+    error_log($errorDetails);
 
-    // Return error response
+    // Return error response with more details in development
     http_response_code(500);
-    echo json_encode([
+    $response = [
         'success' => false,
         'message' => 'שגיאה פנימית בשרת'
-    ]);
+    ];
+
+    // Add debug info if not in production
+    if (defined('DEBUG_MODE') && DEBUG_MODE === true) {
+        $response['debug'] = [
+            'error' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString()
+        ];
+    }
+
+    echo json_encode($response);
 }
 ?>
