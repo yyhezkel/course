@@ -218,9 +218,11 @@
                 });
 
                 const data = await response.json();
+                console.log('API Response:', data); // Debug log
 
                 if (data.success && data.users) {
                     allUsers = data.users;
+                    console.log('First user sample:', allUsers[0]); // Debug log
                     renderUsers();
                 }
             } catch (error) {
@@ -236,6 +238,8 @@
                 container.innerHTML = '<div class="no-users"><div class="no-users-icon">👥</div><p>אין תלמידים במערכת</p></div>';
                 return;
             }
+
+            console.log('Rendering users:', allUsers); // Debug log
 
             container.innerHTML = '';
             container.style.display = 'grid';
@@ -255,6 +259,10 @@
                 // Check if user already has this task
                 const hasTask = user.tasks && user.tasks.some(t => t.task_id == selectedTaskId);
 
+                // Determine display name
+                const displayName = user.full_name && user.full_name.trim() ? user.full_name : user.tz;
+                console.log(`User ${user.id}: full_name="${user.full_name}", display="${displayName}"`); // Debug log
+
                 userCard.innerHTML = `
                     <label style="display: flex; align-items: start; gap: 12px; cursor: pointer;">
                         <input type="checkbox"
@@ -263,7 +271,7 @@
                                onchange="updateSelectedCount()"
                                ${hasTask ? 'disabled' : ''}>
                         <div style="flex: 1;">
-                            <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${user.full_name && user.full_name.trim() ? user.full_name : user.tz}</div>
+                            <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${displayName}</div>
                             <div style="font-size: 13px; color: #666;">ת.ז: ${user.tz}</div>
                             ${hasTask ? '<div style="font-size: 12px; color: #ff9800; margin-top: 8px;">⚠️ משימה כבר הוקצתה</div>' : ''}
                         </div>
