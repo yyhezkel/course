@@ -151,6 +151,10 @@ class AuthComponent extends BaseComponent {
 
             $this->session['cached_answers'] = $previousData;
 
+            // Log successful login
+            $loginMethod = !empty($username) && !empty($password) ? 'credentials' : 'tz';
+            $this->logUserActivity($user['id'], 'login', null, null, json_encode(['method' => $loginMethod]));
+
             $this->sendSuccess([
                 'user_id' => $user['id'],
                 'redirect_to' => $redirectTo

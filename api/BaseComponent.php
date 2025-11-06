@@ -87,6 +87,66 @@ abstract class BaseComponent {
     }
 
     /**
+     * Log user activity
+     *
+     * @param int $userId User ID
+     * @param string $action Action performed (e.g., 'login', 'view_task', 'submit_task')
+     * @param string|null $entityType Type of entity (e.g., 'task', 'form', 'material')
+     * @param int|null $entityId ID of the entity
+     * @param string|null $details Additional details (JSON or text)
+     */
+    protected function logUserActivity($userId, $action, $entityType = null, $entityId = null, $details = null) {
+        try {
+            // Ensure user_activity_log table exists
+            $this->db->exec("
+                CREATE TABLE IF NOT EXISTS user_activity_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    action TEXT NOT NULL,
+                    entity_type TEXT,
+                    entity_id INTEGER,
+                    details TEXT,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    session_id TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            ");
+
+            // Create indexes if they don't exist
+            $this->db->exec("CREATE INDEX IF NOT EXISTS idx_user_activity_user_id ON user_activity_log(user_id)");
+            $this->db->exec("CREATE INDEX IF NOT EXISTS idx_user_activity_action ON user_activity_log(action)");
+            $this->db->exec("CREATE INDEX IF NOT EXISTS idx_user_activity_created_at ON user_activity_log(created_at)");
+            $this->db->exec("CREATE INDEX IF NOT EXISTS idx_user_activity_entity ON user_activity_log(entity_type, entity_id)");
+
+            // Get user agent and session ID
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+            $sessionId = session_id();
+
+            // Insert activity log
+            $stmt = $this->db->prepare("
+                INSERT INTO user_activity_log (user_id, action, entity_type, entity_id, details, ip_address, user_agent, session_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+
+            $stmt->execute([
+                $userId,
+                $action,
+                $entityType,
+                $entityId,
+                $details,
+                $this->userIP,
+                $userAgent,
+                $sessionId
+            ]);
+        } catch (Exception $e) {
+            // Log error but don't fail the request
+            error_log("User activity logging failed: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Initialize course tables if they don't exist
      */
     protected function initializeCourseTables() {

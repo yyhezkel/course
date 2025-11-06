@@ -249,6 +249,184 @@ if ($action === 'register_with_token') {
 }
 
 // ============================================
+// PUBLIC PASSWORD RESET ENDPOINTS
+// ============================================
+
+// Validate password reset token
+if ($action === 'validate_password_reset_token') {
+    try {
+        $token = $input['token'] ?? '';
+
+        if (empty($token)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'קוד איפוס חסר']);
+            exit;
+        }
+
+        // Create table if not exists
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token TEXT UNIQUE NOT NULL,
+                expires_at TEXT NOT NULL,
+                used_at TEXT,
+                created_by_admin_id INTEGER,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                ip_address TEXT,
+                user_agent TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (created_by_admin_id) REFERENCES admin_users(id) ON DELETE SET NULL
+            )
+        ");
+
+        // Find token in database
+        $stmt = $db->prepare("
+            SELECT
+                prt.id,
+                prt.token,
+                prt.expires_at,
+                prt.used_at,
+                u.id as user_id,
+                u.full_name,
+                u.tz
+            FROM password_reset_tokens prt
+            JOIN users u ON prt.user_id = u.id
+            WHERE prt.token = ?
+        ");
+        $stmt->execute([$token]);
+        $tokenData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Check if token exists
+        if (!$tokenData) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'קוד איפוס לא נמצא']);
+            exit;
+        }
+
+        // Check if token was already used
+        if ($tokenData['used_at']) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'קוד איפוס זה כבר נוצל']);
+            exit;
+        }
+
+        // Check if token expired
+        if (strtotime($tokenData['expires_at']) < time()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'קוד איפוס זה פג תוקף']);
+            exit;
+        }
+
+        // Token is valid
+        echo json_encode([
+            'success' => true,
+            'message' => 'קוד איפוס תקף',
+            'user' => [
+                'full_name' => $tokenData['full_name'],
+                'tz' => $tokenData['tz']
+            ]
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בבדיקת קוד האיפוס: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Reset password with token
+if ($action === 'reset_password_with_token') {
+    try {
+        $token = $input['token'] ?? '';
+        $password = $input['password'] ?? '';
+
+        // Validate required fields
+        if (empty($token) || empty($password)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'שדות חובה חסרים']);
+            exit;
+        }
+
+        // Validate password strength
+        if (strlen($password) < 8) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'הסיסמה חייבת להכיל לפחות 8 תווים']);
+            exit;
+        }
+        if (!preg_match('/[A-Z]/', $password)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'הסיסמה חייבת להכיל לפחות אות אחת גדולה']);
+            exit;
+        }
+        if (!preg_match('/[0-9]/', $password)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'הסיסמה חייבת להכיל לפחות ספרה אחת']);
+            exit;
+        }
+        if (!preg_match('/[!@#$%^&*()\-_=+\[\]{};:\'",.<>\/?\\\\|`~]/', $password)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'הסיסמה חייבת להכיל לפחות תו מיוחד אחד']);
+            exit;
+        }
+
+        // Start transaction
+        $db->beginTransaction();
+
+        try {
+            // Find and validate token
+            $stmt = $db->prepare("
+                SELECT
+                    prt.id,
+                    prt.user_id,
+                    prt.expires_at,
+                    prt.used_at
+                FROM password_reset_tokens prt
+                WHERE prt.token = ?
+            ");
+            $stmt->execute([$token]);
+            $tokenData = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Validate token
+            if (!$tokenData) {
+                throw new Exception('קוד איפוס לא נמצא');
+            }
+            if ($tokenData['used_at']) {
+                throw new Exception('קוד איפוס זה כבר נוצל');
+            }
+            if (strtotime($tokenData['expires_at']) < time()) {
+                throw new Exception('קוד איפוס זה פג תוקף');
+            }
+
+            // Update user password
+            $passwordHash = password_hash($password, PASSWORD_BCRYPT);
+            $stmt = $db->prepare("UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+            $stmt->execute([$passwordHash, $tokenData['user_id']]);
+
+            // Mark token as used
+            $stmt = $db->prepare("UPDATE password_reset_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?");
+            $stmt->execute([$tokenData['id']]);
+
+            // Commit transaction
+            $db->commit();
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'הסיסמה אופסה בהצלחה! מעביר לדף התחברות...'
+            ]);
+
+        } catch (Exception $e) {
+            $db->rollBack();
+            throw $e;
+        }
+
+    } catch (Exception $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
 // AUTHENTICATED ENDPOINTS
 // ============================================
 
@@ -2324,6 +2502,113 @@ if ($action === 'get_user_detail') {
     exit;
 }
 
+// Get user activity log
+if ($action === 'get_user_activity_log') {
+    $userId = $input['user_id'] ?? '';
+    $limit = $input['limit'] ?? 100;
+
+    if (empty($userId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משתמש']);
+        exit;
+    }
+
+    try {
+        // Ensure user_activity_log table exists
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS user_activity_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                entity_type TEXT,
+                entity_id INTEGER,
+                details TEXT,
+                ip_address TEXT,
+                user_agent TEXT,
+                session_id TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        ");
+
+        // Get user activity logs (actual user actions)
+        $stmt = $db->prepare("
+            SELECT
+                id,
+                user_id,
+                action,
+                entity_type,
+                entity_id,
+                details,
+                ip_address,
+                user_agent,
+                session_id,
+                created_at,
+                'user' as actor_type
+            FROM user_activity_log
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$userId, $limit]);
+        $userActivities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get admin activity logs related to this user (admin actions on user)
+        $stmt = $db->prepare("
+            SELECT
+                al.id,
+                al.action,
+                al.entity_type,
+                al.entity_id,
+                al.old_value,
+                al.new_value,
+                al.ip_address,
+                al.created_at,
+                au.full_name as admin_name,
+                au.username as admin_username,
+                'admin' as actor_type,
+                NULL as details,
+                NULL as user_agent,
+                NULL as session_id,
+                NULL as user_id
+            FROM activity_log al
+            LEFT JOIN admin_users au ON al.admin_user_id = au.id
+            WHERE (al.entity_type = 'user' AND al.entity_id = ?)
+               OR (al.entity_type = 'user_task' AND al.entity_id IN (
+                   SELECT id FROM user_tasks WHERE user_id = ?
+               ))
+            ORDER BY al.created_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$userId, $userId, $limit]);
+        $adminActivities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Merge and sort all activities by created_at
+        $allActivities = array_merge($userActivities, $adminActivities);
+        usort($allActivities, function($a, $b) {
+            return strtotime($b['created_at']) - strtotime($a['created_at']);
+        });
+
+        // Limit to requested number
+        $allActivities = array_slice($allActivities, 0, $limit);
+
+        // Also get login history from users table if available
+        $stmt = $db->prepare("SELECT last_login FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'activity_log' => $allActivities,
+            'last_login' => $user['last_login'] ?? null
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת לוג פעילות: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 // Review a task (approve/reject/return/checking)
 if ($action === 'review_task') {
     $userTaskId = $input['user_task_id'] ?? '';
@@ -3253,6 +3538,95 @@ if ($action === 'get_task_stats') {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
+// PASSWORD RESET FOR USERS
+// ============================================
+
+// Admin creates password reset token for a user
+if ($action === 'create_password_reset_token') {
+    try {
+        $userId = $input['user_id'] ?? '';
+
+        if (empty($userId)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'מזהה משתמש נדרש']);
+            exit;
+        }
+
+        // Check if user exists
+        $stmt = $db->prepare("SELECT id, full_name, tz FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'משתמש לא נמצא']);
+            exit;
+        }
+
+        // Create password_reset_tokens table if it doesn't exist
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                token TEXT UNIQUE NOT NULL,
+                expires_at TEXT NOT NULL,
+                used_at TEXT,
+                created_by_admin_id INTEGER,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                ip_address TEXT,
+                user_agent TEXT,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (created_by_admin_id) REFERENCES admin_users(id) ON DELETE SET NULL
+            )
+        ");
+
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token)");
+        $db->exec("CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at)");
+
+        // Generate secure random token
+        $token = bin2hex(random_bytes(32));
+
+        // Token expires in 24 hours
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+24 hours'));
+
+        // Get admin ID from session
+        $adminId = $_SESSION['admin_user_id'] ?? null;
+
+        // Get IP and user agent
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+
+        // Insert token
+        $stmt = $db->prepare("
+            INSERT INTO password_reset_tokens (user_id, token, expires_at, created_by_admin_id, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([$userId, $token, $expiresAt, $adminId, $ipAddress, $userAgent]);
+
+        // Log activity
+        if (function_exists('logActivity')) {
+            logActivity($db, $adminId, 'password_reset_token_created', 'user', $userId, null, null);
+        }
+
+        // Generate reset link
+        $resetLink = getAdminOrigin() . '/reset-password.html?token=' . $token;
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'קישור איפוס סיסמה נוצר בהצלחה',
+            'token' => $token,
+            'reset_link' => $resetLink,
+            'expires_at' => $expiresAt
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה ביצירת קישור איפוס: ' . $e->getMessage()]);
     }
     exit;
 }
