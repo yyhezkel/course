@@ -218,6 +218,22 @@
         }
 
         const API_URL = './auth.php';
+        let csrfToken = null;
+
+        // Fetch CSRF token
+        async function fetchCsrfToken() {
+            try {
+                const response = await fetch(API_URL + '?action=get_csrf_token', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    csrfToken = result.csrf_token;
+                }
+            } catch (error) {
+                console.error('Failed to fetch CSRF token:', error);
+            }
+        }
 
         // Toggle password visibility
         function togglePassword() {
@@ -257,6 +273,16 @@
                 return;
             }
 
+            // Ensure we have a CSRF token
+            if (!csrfToken) {
+                await fetchCsrfToken();
+            }
+
+            if (!csrfToken) {
+                showError('שגיאת אבטחה. נא לרענן את הדף');
+                return;
+            }
+
             // Disable button
             submitButton.disabled = true;
             submitButton.querySelector('span').textContent = 'מתחבר...';
@@ -271,7 +297,8 @@
                     body: JSON.stringify({
                         action: 'login',
                         username: username,
-                        password: password
+                        password: password,
+                        csrf_token: csrfToken
                     })
                 });
 
@@ -285,8 +312,18 @@
                     window.location.href = './dashboard.html';
                 } else {
                     showError(result.message || 'שגיאה בהתחברות');
-                    submitButton.disabled = false;
-                    submitButton.querySelector('span').textContent = 'התחבר למערכת';
+
+                    // If account is locked, show additional info
+                    if (result.locked) {
+                        submitButton.disabled = true;
+                        submitButton.querySelector('span').textContent = 'חשבון נחסם';
+                    } else {
+                        submitButton.disabled = false;
+                        submitButton.querySelector('span').textContent = 'התחבר למערכת';
+
+                        // Refresh CSRF token after failed attempt
+                        await fetchCsrfToken();
+                    }
                 }
             } catch (error) {
                 console.error('Login error:', error);
@@ -296,8 +333,11 @@
             }
         });
 
-        // Check if already logged in
+        // Check if already logged in and fetch CSRF token
         window.addEventListener('DOMContentLoaded', async () => {
+            // Fetch CSRF token
+            await fetchCsrfToken();
+
             try {
                 const response = await fetch(API_URL + '?action=check', {
                     credentials: 'include'
