@@ -16,14 +16,39 @@ This document describes the new task management features added to the course man
 - Useful for explaining why a task was approved/rejected
 - Helps students understand how to improve
 
-### 3. Reset Task
+### 3. Task Preview Modal
+- **NEW**: Click "👁️ Preview Full Task" to see complete task details before review
+- Shows all task information, submissions, files, and previous feedback
+- View uploaded files with download links
+- See file metadata (size, upload date, description)
+- Review task description and requirements
+- Make informed decisions before approving/rejecting
+
+### 4. File Upload Support
+- **NEW**: Students can upload files for task submissions
+- Instructors see file count in task cards (📎 2 files)
+- Download links available directly in task cards
+- Full file details in preview modal
+- Supports multiple file types (PDF, Word, Excel, images, ZIP)
+- Maximum file size: 10MB per file
+
+### 5. Enhanced Review Workflow
+- **NEW**: Four review options instead of just approve/reject:
+  1. **✓ Approve** - Task completed successfully (with optional score/feedback)
+  2. **↩️ Return to Student** - Send back for corrections (with feedback)
+  3. **✗ Reject** - Task rejected (with feedback required)
+  4. **🔍 Mark as Checking** - Indicate review in progress
+- All actions send automatic notifications to students
+- Flexible grading: score and feedback are optional
+
+### 6. Reset Task
 - Allows instructors to reset a task to its initial state
 - Clears all progress, submissions, grades, and feedback
 - Sets the task status back to "pending"
 - Student receives a notification about the reset
 - Useful when a student needs to redo a task from scratch
 
-### 4. Remove Task
+### 7. Remove Task
 - Allows instructors to completely remove a task assignment from a specific user
 - Deletes all related data (progress, submissions, comments)
 - Student receives a notification about the removal
@@ -42,11 +67,28 @@ The following fields were added to the `user_tasks` table:
 | `submission_text` | TEXT | Student's text submission |
 | `submission_file_path` | TEXT | Path to student's file submission |
 
+## Task Statuses
+
+The system now supports the following task statuses:
+
+| Status | Hebrew | Description |
+|--------|--------|-------------|
+| `pending` | ממתינה | Task assigned but not started |
+| `in_progress` | בתהליך | Student is working on the task |
+| `completed` | הושלמה | Student marked as complete |
+| `needs_review` | לבדיקה | Submitted and waiting for instructor review |
+| `checking` | **NEW** בבדיקה | Instructor is currently reviewing |
+| `approved` | אושרה | Task approved by instructor |
+| `rejected` | נדחתה | Task rejected by instructor |
+| `returned` | **NEW** הוחזרה לתלמיד | Returned to student for corrections |
+
 ## API Endpoints
 
 ### Review Task with Score and Feedback
 **Endpoint:** `POST /admin/api.php`
 **Action:** `review_task`
+
+**Supported Statuses:** `approved`, `rejected`, `returned`, `checking`
 
 **Parameters:**
 ```json
@@ -57,6 +99,25 @@ The following fields were added to the `user_tasks` table:
   "grade": 85.5,
   "feedback": "Great work! Consider improving the structure.",
   "review_notes": "Internal notes (not visible to student)"
+}
+```
+
+**Example - Return to Student:**
+```json
+{
+  "action": "review_task",
+  "user_task_id": 123,
+  "status": "returned",
+  "feedback": "Please fix the formatting in section 2 and resubmit."
+}
+```
+
+**Example - Mark as Checking:**
+```json
+{
+  "action": "review_task",
+  "user_task_id": 123,
+  "status": "checking"
 }
 ```
 
@@ -145,25 +206,53 @@ sqlite3 course_management.db < admin/migration_task_review_fields.sql
 
 ## Usage Examples
 
-### Example 1: Grade a Task with Feedback
+### Example 1: Review a Task with File Submission
 1. Navigate to a student's detail page
-2. Find a task that needs review
-3. Click "✓ אישור" or "✗ דחייה" button
-4. Enter grade (e.g., 85)
-5. Enter feedback (e.g., "Good work, but needs improvement in section 2")
-6. Click "שלח אישור" or "שלח דחייה"
+2. See tasks with file submissions (📎 2 files indicator)
+3. Click **"👁️ Preview Full Task"** to view:
+   - Complete task description
+   - All uploaded files with download links
+   - Previous feedback (if any)
+   - Current grade and status
+4. Download and review submitted files
+5. Click **"🔍 Mark as Checking"** to indicate you're reviewing
+6. After review, click one of:
+   - **"✓ Approve"** - Enter grade and optional feedback
+   - **"↩️ Return"** - Provide feedback for corrections
+   - **"✗ Reject"** - Provide feedback explaining why
+7. Student receives automatic notification
 
-### Example 2: Reset a Task
+### Example 2: Return Task to Student for Corrections
+1. Open student's detail page
+2. Click "👁️ Preview Full Task" on a submitted task
+3. Review the submission and identify issues
+4. Click "↩️ Return" button
+5. Enter feedback: "Please fix the following: 1) Add references, 2) Fix formatting"
+6. Click "שלח החזרה"
+7. Task status changes to "returned"
+8. Student gets notification with feedback
+
+### Example 3: Grade a Task with Feedback
+1. Navigate to a student's detail page
+2. Find a task that needs review (status: "needs_review" or "checking")
+3. Click "👁️ Preview Full Task" to review everything first
+4. Click "✓ Approve" button in task card
+5. Enter grade (e.g., 85)
+6. Enter feedback (e.g., "Good work! The analysis is thorough.")
+7. Optional: Add internal notes for your records
+8. Click "✓ Send Approval"
+
+### Example 4: Reset a Task
 1. Navigate to a student's detail page
 2. Find the task you want to reset
-3. Click "🔄 איפוס" button
+3. Click "🔄 Reset" button
 4. Confirm the action
 5. Task is reset to "pending" status with all data cleared
 
-### Example 3: Remove a Task Assignment
+### Example 5: Remove a Task Assignment
 1. Navigate to a student's detail page
 2. Find the task you want to remove
-3. Click "🗑️ הסרה" button
+3. Click "🗑️ Remove" button
 4. Confirm the action (warning: cannot be undone!)
 5. Task assignment is completely removed
 

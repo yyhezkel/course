@@ -85,6 +85,15 @@
         </div>
     </div>
 
+    <!-- Task Preview Modal -->
+    <div id="taskPreviewModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;">
+        <div style="max-width: 900px; margin: 40px auto; background: white; border-radius: 12px; padding: 30px; position: relative;">
+            <button onclick="closeTaskPreview()" style="position: absolute; left: 20px; top: 20px; background: #ef4444; color: white; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer;">✕ סגור</button>
+
+            <div id="taskPreviewContent"></div>
+        </div>
+    </div>
+
     <script>
         // Mobile Menu Toggle
 
@@ -239,6 +248,8 @@
                 const needsReview = task.status === 'needs_review';
                 const hasGrade = task.grade !== null && task.grade !== undefined;
                 const hasFeedback = task.feedback && task.feedback.trim();
+                const hasSubmissions = task.submissions && task.submissions.length > 0;
+                const submissionCount = task.submissions ? task.submissions.length : 0;
 
                 return `
                     <div class="task-item ${task.status.replace('_', '-')}">
@@ -252,6 +263,7 @@
                             ${task.points ? `<span>⭐ ${task.points} נקודות</span>` : ''}
                             ${dueDate ? `<span>📅 ${dueDate}</span>` : ''}
                             ${hasGrade ? `<span style="font-weight: bold; color: #2563eb;">📊 ציון: ${task.grade}%</span>` : ''}
+                            ${hasSubmissions ? `<span style="font-weight: bold; color: #059669;">📎 ${submissionCount} קבצים</span>` : ''}
                         </div>
                         ${hasFeedback ? `
                             <div style="background: #f3f4f6; padding: 10px; border-radius: 6px; margin: 10px 0; border-right: 3px solid #2563eb;">
@@ -259,12 +271,28 @@
                                 <div style="font-size: 13px; color: #374151;">${task.feedback}</div>
                             </div>
                         ` : ''}
+                        ${hasSubmissions ? `
+                            <div style="background: #f0fdf4; padding: 10px; border-radius: 6px; margin: 10px 0; border-right: 3px solid #059669;">
+                                <div style="font-size: 12px; color: #065f46; margin-bottom: 6px; font-weight: 500;">📎 קבצים שהועלו:</div>
+                                ${task.submissions.map(sub => `
+                                    <div style="display: flex; align-items: center; justify-content: space-between; margin: 4px 0; padding: 6px; background: white; border-radius: 4px;">
+                                        <span style="font-size: 13px; color: #374151;">${sub.original_filename}</span>
+                                        <a href="${sub.filepath}" target="_blank" style="color: #2563eb; text-decoration: none; font-size: 12px;">📥 הורדה</a>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
                         <div class="task-actions">
-                            ${needsReview ? `
+                            <button class="task-action-btn view" onclick="previewTask(${task.id})" style="background: #2563eb;">👁️ צפייה מלאה</button>
+                            ${needsReview || task.status === 'checking' ? `
                                 <button class="task-action-btn approve" onclick="toggleReviewSection(${task.id}, 'approve')">✓ אישור</button>
+                                <button class="task-action-btn" style="background: #f59e0b;" onclick="toggleReviewSection(${task.id}, 'return')">↩️ החזרה</button>
                                 <button class="task-action-btn reject" onclick="toggleReviewSection(${task.id}, 'reject')">✗ דחייה</button>
                             ` : ''}
-                            <button class="task-action-btn view" onclick="viewTaskResponses(${task.id})">צפייה בתשובות</button>
+                            ${task.status === 'needs_review' ? `
+                                <button class="task-action-btn" style="background: #8b5cf6;" onclick="setTaskChecking(${task.id})">🔍 סמן בבדיקה</button>
+                            ` : ''}
+                            <button class="task-action-btn view" onclick="viewTaskResponses(${task.id})">📋 תשובות טופס</button>
                             <button class="task-action-btn" style="background: #f59e0b;" onclick="resetTask(${task.id})">🔄 איפוס</button>
                             <button class="task-action-btn" style="background: #ef4444;" onclick="removeTask(${task.id})">🗑️ הסרה</button>
                         </div>
@@ -304,8 +332,9 @@
                                     style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;"
                                 ></textarea>
                             </div>
-                            <div class="review-actions">
+                            <div class="review-actions" id="review-actions-${task.id}">
                                 <button class="task-action-btn approve" onclick="submitReview(${task.id}, 'approved')">✓ שלח אישור</button>
+                                <button class="task-action-btn" style="background: #f59e0b;" onclick="submitReview(${task.id}, 'returned')">↩️ שלח החזרה</button>
                                 <button class="task-action-btn reject" onclick="submitReview(${task.id}, 'rejected')">✗ שלח דחייה</button>
                                 <button class="task-action-btn view" onclick="toggleReviewSection(${task.id})">ביטול</button>
                             </div>
@@ -337,7 +366,13 @@
                 return;
             }
 
-            if (!confirm(`האם אתה בטוח שברצונך ${newStatus === 'approved' ? 'לאשר' : 'לדחות'} את המשימה?`)) {
+            const confirmMessages = {
+                'approved': 'לאשר',
+                'rejected': 'לדחות',
+                'returned': 'להחזיר לתלמיד'
+            };
+
+            if (!confirm(`האם אתה בטוח שברצונך ${confirmMessages[newStatus] || 'לעדכן'} את המשימה?`)) {
                 return;
             }
 
@@ -367,6 +402,137 @@
                 console.error('Error reviewing task:', error);
                 alert('שגיאה בעדכון הסטטוס');
             }
+        }
+
+        async function setTaskChecking(userTaskId) {
+            if (!confirm('האם לסמן את המשימה כ"בבדיקה"?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'review_task',
+                        user_task_id: userTaskId,
+                        status: 'checking'
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('המשימה סומנה כ"בבדיקה"');
+                    await loadUserData();
+                } else {
+                    alert('שגיאה: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error setting task as checking:', error);
+                alert('שגיאה בעדכון הסטטוס');
+            }
+        }
+
+        function previewTask(taskId) {
+            const task = userTasks.find(t => t.id === taskId);
+            if (!task) {
+                alert('משימה לא נמצאה');
+                return;
+            }
+
+            const hasSubmissions = task.submissions && task.submissions.length > 0;
+            const hasGrade = task.grade !== null && task.grade !== undefined;
+            const hasFeedback = task.feedback && task.feedback.trim();
+
+            const modalContent = `
+                <h2 style="margin-top: 0; margin-bottom: 20px; color: #1f2937;">${task.title}</h2>
+
+                <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div>
+                            <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">סטטוס</div>
+                            <div style="font-size: 14px; font-weight: 500; color: #1f2937;">${getStatusText(task.status)}</div>
+                        </div>
+                        ${task.points ? `
+                            <div>
+                                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">נקודות</div>
+                                <div style="font-size: 14px; font-weight: 500; color: #1f2937;">⭐ ${task.points}</div>
+                            </div>
+                        ` : ''}
+                        ${hasGrade ? `
+                            <div>
+                                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">ציון</div>
+                                <div style="font-size: 14px; font-weight: 500; color: #2563eb;">📊 ${task.grade}%</div>
+                            </div>
+                        ` : ''}
+                        ${task.estimated_duration ? `
+                            <div>
+                                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">זמן משוער</div>
+                                <div style="font-size: 14px; font-weight: 500; color: #1f2937;">⏱️ ${task.estimated_duration} דקות</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                ${task.description ? `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; color: #1f2937; margin-bottom: 10px;">תיאור המשימה</h3>
+                        <p style="color: #4b5563; line-height: 1.6;">${task.description}</p>
+                    </div>
+                ` : ''}
+
+                ${hasFeedback ? `
+                    <div style="background: #eff6ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-right: 4px solid #2563eb;">
+                        <h3 style="font-size: 16px; color: #1e40af; margin: 0 0 10px 0;">משוב מהמנחה</h3>
+                        <p style="color: #1e3a8a; line-height: 1.6; margin: 0;">${task.feedback}</p>
+                    </div>
+                ` : ''}
+
+                ${hasSubmissions ? `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; color: #1f2937; margin-bottom: 10px;">📎 קבצים שהועלו (${task.submissions.length})</h3>
+                        <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; border-right: 4px solid #059669;">
+                            ${task.submissions.map(sub => {
+                                const uploadDate = new Date(sub.uploaded_at).toLocaleString('he-IL');
+                                const fileSize = (sub.filesize / 1024).toFixed(2);
+                                return `
+                                    <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #d1fae5;">
+                                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                                            <div style="flex: 1;">
+                                                <div style="font-weight: 500; color: #065f46; margin-bottom: 4px;">${sub.original_filename}</div>
+                                                <div style="font-size: 12px; color: #059669;">
+                                                    ${fileSize} KB • הועלה ב-${uploadDate}
+                                                </div>
+                                                ${sub.description ? `<div style="font-size: 13px; color: #4b5563; margin-top: 4px;">${sub.description}</div>` : ''}
+                                            </div>
+                                            <a href="${sub.filepath}" target="_blank" download style="background: #059669; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 13px; white-space: nowrap; margin-right: 10px;">
+                                                📥 הורדה
+                                            </a>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                ` : '<div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; color: #92400e;">אין קבצים שהועלו למשימה זו</div>'}
+
+                ${task.submission_text ? `
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="font-size: 16px; color: #1f2937; margin-bottom: 10px;">תשובה טקסטואלית</h3>
+                        <div style="background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                            <p style="color: #4b5563; line-height: 1.6; white-space: pre-wrap;">${task.submission_text}</p>
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+
+            document.getElementById('taskPreviewContent').innerHTML = modalContent;
+            document.getElementById('taskPreviewModal').style.display = 'block';
+        }
+
+        function closeTaskPreview() {
+            document.getElementById('taskPreviewModal').style.display = 'none';
         }
 
         async function resetTask(userTaskId) {
@@ -447,8 +613,10 @@
                 'in_progress': 'בתהליך',
                 'completed': 'הושלמה',
                 'needs_review': 'לבדיקה',
+                'checking': 'בבדיקה',
                 'approved': 'אושרה',
-                'rejected': 'נדחתה'
+                'rejected': 'נדחתה',
+                'returned': 'הוחזרה לתלמיד'
             };
             return statusMap[status] || status;
         }

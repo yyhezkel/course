@@ -2300,6 +2300,18 @@ if ($action === 'get_user_detail') {
         $stmt->execute([$userId]);
         $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Get submissions for each task
+        foreach ($tasks as &$task) {
+            $stmt = $db->prepare("
+                SELECT id, filename, original_filename, filepath, filesize, mime_type, description, uploaded_at
+                FROM task_submissions
+                WHERE user_task_id = ?
+                ORDER BY uploaded_at DESC
+            ");
+            $stmt->execute([$task['id']]);
+            $task['submissions'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
         echo json_encode([
             'success' => true,
             'user' => $user,
@@ -2312,7 +2324,7 @@ if ($action === 'get_user_detail') {
     exit;
 }
 
-// Review a task (approve/reject)
+// Review a task (approve/reject/return/checking)
 if ($action === 'review_task') {
     $userTaskId = $input['user_task_id'] ?? '';
     $status = $input['status'] ?? '';
@@ -2326,7 +2338,7 @@ if ($action === 'review_task') {
         exit;
     }
 
-    if (!in_array($status, ['approved', 'rejected'])) {
+    if (!in_array($status, ['approved', 'rejected', 'returned', 'checking'])) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'סטטוס לא תקין']);
         exit;
@@ -2374,22 +2386,43 @@ if ($action === 'review_task') {
         $taskInfo = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($taskInfo) {
-            $notificationTitle = $status === 'approved' ? 'המשימה אושרה!' : 'המשימה נדחתה';
-            $notificationMessage = $status === 'approved'
-                ? 'המשימה שלך אושרה על ידי המנחה'
-                : 'המשימה שלך נדחתה. אנא קרא את ההערות ותקן.';
+            $notificationData = [
+                'approved' => [
+                    'title' => 'המשימה אושרה!',
+                    'message' => 'המשימה שלך אושרה על ידי המנחה',
+                    'type' => 'success'
+                ],
+                'rejected' => [
+                    'title' => 'המשימה נדחתה',
+                    'message' => 'המשימה שלך נדחתה. אנא קרא את המשוב ותקן.',
+                    'type' => 'warning'
+                ],
+                'returned' => [
+                    'title' => 'המשימה הוחזרה',
+                    'message' => 'המשימה הוחזרה אליך. אנא קרא את המשוב ותקן.',
+                    'type' => 'info'
+                ],
+                'checking' => [
+                    'title' => 'המשימה בבדיקה',
+                    'message' => 'המנחה בוחן את המשימה שלך',
+                    'type' => 'info'
+                ]
+            ];
 
-            $stmt = $db->prepare("
-                INSERT INTO notifications (user_id, title, message, notification_type, related_user_task_id)
-                VALUES (?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([
-                $taskInfo['user_id'],
-                $notificationTitle,
-                $notificationMessage,
-                $status === 'approved' ? 'success' : 'warning',
-                $userTaskId
-            ]);
+            $notification = $notificationData[$status] ?? null;
+            if ($notification) {
+                $stmt = $db->prepare("
+                    INSERT INTO notifications (user_id, title, message, notification_type, related_user_task_id)
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $taskInfo['user_id'],
+                    $notification['title'],
+                    $notification['message'],
+                    $notification['type'],
+                    $userTaskId
+                ]);
+            }
         }
 
         echo json_encode([
