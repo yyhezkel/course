@@ -365,7 +365,6 @@ if ($action === 'update_user') {
     try {
         $userId = $input['user_id'] ?? '';
         $fullName = $input['full_name'] ?? '';
-        $isActive = isset($input['is_active']) ? (int)$input['is_active'] : 1;
 
         if (empty($userId)) {
             http_response_code(400);
@@ -373,13 +372,40 @@ if ($action === 'update_user') {
             exit;
         }
 
+        // Build update query dynamically
+        $updates = [];
+        $params = [];
+
+        if (isset($input['full_name'])) {
+            $updates[] = 'full_name = ?';
+            $params[] = $fullName;
+        }
+
+        // Fix: When toggling status, update is_blocked (not is_active)
+        // is_active parameter actually means block/unblock: 1=unblock, 0=block
+        if (isset($input['is_active'])) {
+            $isActive = (int)$input['is_active'];
+            $updates[] = 'is_blocked = ?';
+            // Inverse: if is_active=1 (activate), set is_blocked=0
+            $params[] = $isActive === 1 ? 0 : 1;
+        }
+
+        if (empty($updates)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'אין שדות לעדכון']);
+            exit;
+        }
+
+        $updates[] = 'updated_at = datetime(\'now\')';
+        $params[] = $userId;
+
         // Update user
         $stmt = $db->prepare("
             UPDATE users
-            SET full_name = ?, is_active = ?, updated_at = datetime('now')
+            SET " . implode(', ', $updates) . "
             WHERE id = ?
         ");
-        $stmt->execute([$fullName, $isActive, $userId]);
+        $stmt->execute($params);
 
         // Log activity
         logActivity($db, $_SESSION['admin_user_id'], 'update', 'user', $userId);
@@ -388,6 +414,64 @@ if ($action === 'update_user') {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון משתמש: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'archive_user') {
+    try {
+        $userId = $input['user_id'] ?? '';
+
+        if (empty($userId)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'מזהה משתמש נדרש']);
+            exit;
+        }
+
+        // Archive user (set is_archived = 1)
+        $stmt = $db->prepare("
+            UPDATE users
+            SET is_archived = 1, updated_at = datetime('now')
+            WHERE id = ?
+        ");
+        $stmt->execute([$userId]);
+
+        // Log activity
+        logActivity($db, $_SESSION['admin_user_id'], 'archive', 'user', $userId);
+
+        echo json_encode(['success' => true, 'message' => 'משתמש הועבר לארכיון בהצלחה']);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בארכוב משתמש: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'unarchive_user') {
+    try {
+        $userId = $input['user_id'] ?? '';
+
+        if (empty($userId)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'מזהה משתמש נדרש']);
+            exit;
+        }
+
+        // Unarchive user (set is_archived = 0)
+        $stmt = $db->prepare("
+            UPDATE users
+            SET is_archived = 0, updated_at = datetime('now')
+            WHERE id = ?
+        ");
+        $stmt->execute([$userId]);
+
+        // Log activity
+        logActivity($db, $_SESSION['admin_user_id'], 'unarchive', 'user', $userId);
+
+        echo json_encode(['success' => true, 'message' => 'משתמש הוחזר מהארכיון בהצלחה']);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בהחזרת משתמש מארכיון: ' . $e->getMessage()]);
     }
     exit;
 }
@@ -1455,6 +1539,12 @@ if (strpos($action, 'task') !== false || strpos($action, 'material') !== false |
 // Get all users with their progress
 if ($action === 'get_all_users_with_progress') {
     try {
+        // Support filtering by archive status
+        // archived=1 -> only archived users
+        // archived=0 or not set -> only non-archived users
+        $archivedFilter = isset($input['archived']) ? (int)$input['archived'] : 0;
+
+        // Add is_archived check with default to 0 for backward compatibility
         $stmt = $db->query("
             SELECT
                 u.id,
@@ -1462,6 +1552,7 @@ if ($action === 'get_all_users_with_progress') {
                 u.full_name,
                 u.is_blocked,
                 u.is_active,
+                COALESCE(u.is_archived, 0) as is_archived,
                 u.last_login,
                 COUNT(DISTINCT ut.id) as total_tasks,
                 COUNT(DISTINCT CASE WHEN ut.status IN ('completed', 'approved') THEN ut.id END) as completed_tasks,
@@ -1469,6 +1560,7 @@ if ($action === 'get_all_users_with_progress') {
                 COUNT(DISTINCT CASE WHEN ut.status = 'needs_review' THEN ut.id END) as review_tasks
             FROM users u
             LEFT JOIN user_tasks ut ON u.id = ut.user_id
+            WHERE COALESCE(u.is_archived, 0) = $archivedFilter
             GROUP BY u.id
             ORDER BY u.id DESC
         ");
@@ -1488,7 +1580,8 @@ if ($action === 'get_all_users_with_progress') {
 
         echo json_encode([
             'success' => true,
-            'users' => $users
+            'users' => $users,
+            'archived' => $archivedFilter
         ]);
     } catch (Exception $e) {
         http_response_code(500);

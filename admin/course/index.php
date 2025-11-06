@@ -66,6 +66,7 @@
                 <button class="filter-btn active" data-filter="all">הכל</button>
                 <button class="filter-btn" data-filter="active">פעילים</button>
                 <button class="filter-btn" data-filter="inactive">לא פעילים</button>
+                <button class="filter-btn" data-filter="archived">ארכיון</button>
                 <button class="filter-btn" data-filter="completed">סיימו</button>
                 <button class="filter-btn" data-filter="in-progress">בתהליך</button>
                 <button class="filter-btn" data-filter="not-started">לא התחילו</button>
@@ -174,19 +175,32 @@
                 btn.addEventListener('click', (e) => {
                     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                     e.target.classList.add('active');
+                    const prevFilter = currentFilter;
                     currentFilter = e.target.dataset.filter;
-                    filterAndRenderUsers();
+
+                    // Reload users when switching to/from archived view
+                    if ((prevFilter === 'archived' || currentFilter === 'archived') && prevFilter !== currentFilter) {
+                        loadUsers();
+                    } else {
+                        filterAndRenderUsers();
+                    }
                 });
             });
         }
 
         async function loadUsers() {
             try {
+                // Show archived users only when archived filter is selected
+                const archived = currentFilter === 'archived' ? 1 : 0;
+
                 const response = await fetch('../api.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ action: 'get_all_users_with_progress' })
+                    body: JSON.stringify({
+                        action: 'get_all_users_with_progress',
+                        archived: archived
+                    })
                 });
 
                 if (!response.ok) {
@@ -225,6 +239,9 @@
                     matchesFilter = !user.is_blocked;
                 } else if (currentFilter === 'inactive') {
                     matchesFilter = user.is_blocked;
+                } else if (currentFilter === 'archived') {
+                    // Archived users are already filtered by API, just show all
+                    matchesFilter = true;
                 } else if (currentFilter === 'completed') {
                     matchesFilter = user.total_tasks > 0 && user.completed_tasks === user.total_tasks;
                 } else if (currentFilter === 'in-progress') {
@@ -352,6 +369,14 @@
                             <button class="user-action-btn secondary" onclick="toggleStudentStatus(${user.id}, ${user.is_blocked})" title="${isActive ? 'השבת' : 'הפעל'}">
                                 ${isActive ? '🔒' : '🔓'}
                             </button>
+                            ${user.is_archived ?
+                                `<button class="user-action-btn warning" onclick="unarchiveUser(${user.id})" title="החזר מארכיון">
+                                    📤
+                                </button>` :
+                                `<button class="user-action-btn warning" onclick="archiveUser(${user.id})" title="העבר לארכיון">
+                                    📦
+                                </button>`
+                            }
                         </div>
                     </div>
                 `;
@@ -663,6 +688,76 @@
                     } catch (error) {
                         console.error('Error toggling status:', error);
                         toast.error('שגיאה בעדכון סטטוס');
+                    }
+                }
+            );
+        }
+
+        // Archive user
+        async function archiveUser(userId) {
+            const user = allUsers.find(u => u.id == userId);
+
+            modalManager.confirm(
+                'העבר לארכיון',
+                `האם אתה בטוח שברצונך להעביר את ${user.tz} לארכיון?`,
+                async () => {
+                    try {
+                        const response = await fetch('../api.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                action: 'archive_user',
+                                user_id: userId
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            toast.success('התלמיד הועבר לארכיון בהצלחה!');
+                            loadUsers();
+                        } else {
+                            toast.error(result.message || 'שגיאה בהעברה לארכיון');
+                        }
+                    } catch (error) {
+                        console.error('Error archiving user:', error);
+                        toast.error('שגיאה בהעברה לארכיון');
+                    }
+                }
+            );
+        }
+
+        // Unarchive user
+        async function unarchiveUser(userId) {
+            const user = allUsers.find(u => u.id == userId);
+
+            modalManager.confirm(
+                'החזר מארכיון',
+                `האם אתה בטוח שברצונך להחזיר את ${user.tz} מהארכיון?`,
+                async () => {
+                    try {
+                        const response = await fetch('../api.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                action: 'unarchive_user',
+                                user_id: userId
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            toast.success('התלמיד הוחזר מהארכיון בהצלחה!');
+                            loadUsers();
+                        } else {
+                            toast.error(result.message || 'שגיאה בהחזרה מארכיון');
+                        }
+                    } catch (error) {
+                        console.error('Error unarchiving user:', error);
+                        toast.error('שגיאה בהחזרה מארכיון');
                     }
                 }
             );
