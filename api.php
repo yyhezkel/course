@@ -68,6 +68,10 @@ function ensureUserAuthFields($db) {
             $db->exec("ALTER TABLE users ADD COLUMN password_hash TEXT");
         }
 
+        if (!in_array('profile_photo', $existingColumns)) {
+            $db->exec("ALTER TABLE users ADD COLUMN profile_photo TEXT");
+        }
+
         $db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)");
     } catch (Exception $e) {
         error_log("ensureUserAuthFields error: " . $e->getMessage());
