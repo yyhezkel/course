@@ -115,19 +115,23 @@ class UserComponent extends BaseComponent {
         $username = $this->getParam('username', '');
         $password = $this->getParam('password', '');
 
-        // Validate username
-        if (empty($username) || strlen($username) < 3) {
-            $this->sendError(400, 'שם המשתמש חייב להכיל לפחות 3 תווים.');
+        // Validate email format
+        if (empty($username) || !filter_var($username, FILTER_VALIDATE_EMAIL)) {
+            $this->sendError(400, 'כתובת האימייל אינה תקינה.');
         }
 
-        // Validate password
-        if (empty($password) || strlen($password) < 6) {
-            $this->sendError(400, 'הסיסמה חייבת להכיל לפחות 6 תווים.');
+        // Validate password strength (at least 8 chars, 1 uppercase, 1 number, 1 special char)
+        if (empty($password) || strlen($password) < 8) {
+            $this->sendError(400, 'הסיסמה חייבת להכיל לפחות 8 תווים.');
         }
-
-        // Validate username format
-        if (!preg_match('/^[a-zA-Z0-9_\x{0590}-\x{05FF}]+$/u', $username)) {
-            $this->sendError(400, 'שם המשתמש יכול להכיל רק אותיות, מספרים וקו תחתון.');
+        if (!preg_match('/[A-Z]/', $password)) {
+            $this->sendError(400, 'הסיסמה חייבת להכיל לפחות אות אחת גדולה.');
+        }
+        if (!preg_match('/[0-9]/', $password)) {
+            $this->sendError(400, 'הסיסמה חייבת להכיל לפחות ספרה אחת.');
+        }
+        if (!preg_match('/[!@#$%^&*()\-_=+\[\]{};:\'",.<>\/?\\\\|`~]/', $password)) {
+            $this->sendError(400, 'הסיסמה חייבת להכיל לפחות תו מיוחד אחד.');
         }
 
         try {
@@ -144,11 +148,11 @@ class UserComponent extends BaseComponent {
                 $this->sendError(400, 'פרטי התחברות כבר הוגדרו עבור משתמש זה.');
             }
 
-            // Check if username taken
+            // Check if email taken
             $stmt = $this->db->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
             $stmt->execute([$username, $userId]);
             if ($stmt->fetch()) {
-                $this->sendError(409, 'שם משתמש זה כבר תפוס. נא לבחור שם משתמש אחר.');
+                $this->sendError(409, 'כתובת אימייל זו כבר בשימוש. נא להשתמש באימייל אחר.');
             }
 
             // Hash password and update

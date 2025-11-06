@@ -729,16 +729,42 @@ loginButton.addEventListener('click', async () => {
 
         loginData = { tz: tz };
     } else {
-        // Username + password login
-        const username = document.getElementById('username-input').value.trim();
+        // Email + password login
+        const email = document.getElementById('username-input').value.trim();
         const password = document.getElementById('password-input').value;
 
-        if (!username || !password) {
-            displayError('נא למלא שם משתמש וסיסמה.');
+        if (!email || !password) {
+            displayError('נא למלא אימייל וסיסמה.');
             return;
         }
 
-        loginData = { username: username, password: password };
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            displayError('נא להזין כתובת אימייל תקינה.');
+            return;
+        }
+
+        // Validate password strength
+        // At least 8 characters, 1 uppercase, 1 number, 1 special character
+        if (password.length < 8) {
+            displayError('הסיסמה חייבת להכיל לפחות 8 תווים.');
+            return;
+        }
+        if (!/[A-Z]/.test(password)) {
+            displayError('הסיסמה חייבת להכיל לפחות אות אחת גדולה (A-Z).');
+            return;
+        }
+        if (!/[0-9]/.test(password)) {
+            displayError('הסיסמה חייבת להכיל לפחות ספרה אחת (0-9).');
+            return;
+        }
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+            displayError('הסיסמה חייבת להכיל לפחות תו מיוחד אחד (!@#$%^&* וכו\').');
+            return;
+        }
+
+        loginData = { username: email, password: password };
     }
 
     // שליחת בקשה לשרת PHP

@@ -32,7 +32,7 @@
                             מספר אישי
                         </button>
                         <button id="tab-username" class="login-tab" onclick="switchLoginMethod('username')">
-                            שם משתמש + סיסמה
+                            אימייל + סיסמה
                         </button>
                     </div>
 
@@ -56,24 +56,29 @@
                     <!-- Username + Password Login -->
                     <div id="login-method-username" class="login-method">
                         <div class="input-group">
-                            <label for="username-input" class="input-label">שם משתמש</label>
+                            <label for="username-input" class="input-label">כתובת אימייל</label>
                             <input
-                                type="text"
+                                type="email"
                                 id="username-input"
-                                placeholder="שם המשתמש שלך"
+                                placeholder="your.email@example.com"
                                 class="input-field"
+                                autocomplete="email"
                             >
-                            <div class="input-icon">👤</div>
+                            <div class="input-icon">📧</div>
                         </div>
                         <div class="input-group" style="margin-top: 15px;">
                             <label for="password-input" class="input-label">סיסמה</label>
                             <input
                                 type="password"
                                 id="password-input"
-                                placeholder="הסיסמה שלך"
+                                placeholder="לפחות 8 תווים"
                                 class="input-field"
+                                autocomplete="current-password"
                             >
                             <div class="input-icon">🔒</div>
+                            <div class="password-requirements" style="font-size: 0.75rem; color: var(--gray-500); margin-top: 0.5rem; text-align: right;">
+                                הסיסמה חייבת להכיל לפחות 8 תווים, אות גדולה, מספר ותו מיוחד
+                            </div>
                         </div>
                     </div>
 
