@@ -412,6 +412,204 @@ if ($action === 'delete_user') {
 }
 
 // ============================================
+// BATCH OPERATIONS
+// ============================================
+
+if ($action === 'batch_update_users') {
+    try {
+        $userIds = $input['user_ids'] ?? [];
+        $isActive = isset($input['is_active']) ? (int)$input['is_active'] : null;
+
+        if (empty($userIds) || !is_array($userIds)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'רשימת משתמשים נדרשת']);
+            exit;
+        }
+
+        if ($isActive === null) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'סטטוס נדרש']);
+            exit;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+        $stmt = $db->prepare("UPDATE users SET is_active = ?, updated_at = datetime('now') WHERE id IN ($placeholders)");
+        $params = array_merge([$isActive], $userIds);
+        $stmt->execute($params);
+
+        $affected = $stmt->rowCount();
+
+        // Log activity
+        logActivity($db, $_SESSION['admin_user_id'], 'batch_update', 'user', null, null, [
+            'user_ids' => $userIds,
+            'is_active' => $isActive,
+            'count' => $affected
+        ]);
+
+        echo json_encode(['success' => true, 'message' => "$affected משתמשים עודכנו בהצלחה"]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון משתמשים: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'batch_delete_users') {
+    try {
+        $userIds = $input['user_ids'] ?? [];
+
+        if (empty($userIds) || !is_array($userIds)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'רשימת משתמשים נדרשת']);
+            exit;
+        }
+
+        // Soft delete - just mark as inactive
+        $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+        $stmt = $db->prepare("UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id IN ($placeholders)");
+        $stmt->execute($userIds);
+
+        $affected = $stmt->rowCount();
+
+        // Log activity
+        logActivity($db, $_SESSION['admin_user_id'], 'batch_delete', 'user', null, null, [
+            'user_ids' => $userIds,
+            'count' => $affected
+        ]);
+
+        echo json_encode(['success' => true, 'message' => "$affected משתמשים נמחקו בהצלחה"]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה במחיקת משתמשים: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'export_users_csv') {
+    try {
+        $userIds = $input['user_ids'] ?? [];
+
+        if (empty($userIds) || !is_array($userIds)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'רשימת משתמשים נדרשת']);
+            exit;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+        $stmt = $db->prepare("
+            SELECT
+                u.id,
+                u.tz,
+                u.full_name,
+                u.email,
+                u.phone,
+                u.is_blocked,
+                u.is_active,
+                u.last_login,
+                u.created_at,
+                COUNT(DISTINCT ut.id) as total_tasks,
+                COUNT(DISTINCT CASE WHEN ut.status IN ('completed', 'approved') THEN ut.id END) as completed_tasks
+            FROM users u
+            LEFT JOIN user_tasks ut ON u.id = ut.user_id
+            WHERE u.id IN ($placeholders)
+            GROUP BY u.id
+            ORDER BY u.id DESC
+        ");
+        $stmt->execute($userIds);
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Generate CSV
+        $csv = "\xEF\xBB\xBF"; // UTF-8 BOM
+        $csv .= "מספר זהוי,שם מלא,אימייל,טלפון,סטטוס,סך משימות,משימות שהושלמו,כניסה אחרונה,תאריך הוספה\n";
+
+        foreach ($users as $user) {
+            $status = $user['is_active'] && !$user['is_blocked'] ? 'פעיל' : 'לא פעיל';
+            $lastLogin = $user['last_login'] ? date('Y-m-d H:i', strtotime($user['last_login'])) : '-';
+            $createdAt = date('Y-m-d H:i', strtotime($user['created_at']));
+
+            $csv .= implode(',', [
+                $user['tz'],
+                '"' . ($user['full_name'] ?: '-') . '"',
+                '"' . ($user['email'] ?: '-') . '"',
+                '"' . ($user['phone'] ?: '-') . '"',
+                $status,
+                $user['total_tasks'],
+                $user['completed_tasks'],
+                $lastLogin,
+                $createdAt
+            ]) . "\n";
+        }
+
+        // Log activity
+        logActivity($db, $_SESSION['admin_user_id'], 'export', 'user', null, null, [
+            'user_ids' => $userIds,
+            'count' => count($users)
+        ]);
+
+        echo json_encode(['success' => true, 'csv' => $csv]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בייצוא: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'export_all_users_csv') {
+    try {
+        $stmt = $db->query("
+            SELECT
+                u.id,
+                u.tz,
+                u.full_name,
+                u.email,
+                u.phone,
+                u.is_blocked,
+                u.is_active,
+                u.last_login,
+                u.created_at,
+                COUNT(DISTINCT ut.id) as total_tasks,
+                COUNT(DISTINCT CASE WHEN ut.status IN ('completed', 'approved') THEN ut.id END) as completed_tasks
+            FROM users u
+            LEFT JOIN user_tasks ut ON u.id = ut.user_id
+            GROUP BY u.id
+            ORDER BY u.id DESC
+        ");
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Generate CSV
+        $csv = "\xEF\xBB\xBF"; // UTF-8 BOM
+        $csv .= "מספר זהוי,שם מלא,אימייל,טלפון,סטטוס,סך משימות,משימות שהושלמו,כניסה אחרונה,תאריך הוספה\n";
+
+        foreach ($users as $user) {
+            $status = $user['is_active'] && !$user['is_blocked'] ? 'פעיל' : 'לא פעיל';
+            $lastLogin = $user['last_login'] ? date('Y-m-d H:i', strtotime($user['last_login'])) : '-';
+            $createdAt = date('Y-m-d H:i', strtotime($user['created_at']));
+
+            $csv .= implode(',', [
+                $user['tz'],
+                '"' . ($user['full_name'] ?: '-') . '"',
+                '"' . ($user['email'] ?: '-') . '"',
+                '"' . ($user['phone'] ?: '-') . '"',
+                $status,
+                $user['total_tasks'],
+                $user['completed_tasks'],
+                $lastLogin,
+                $createdAt
+            ]) . "\n";
+        }
+
+        // Log activity
+        logActivity($db, $_SESSION['admin_user_id'], 'export_all', 'user', null, null, ['count' => count($users)]);
+
+        echo json_encode(['success' => true, 'csv' => $csv]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בייצוא: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// ============================================
 // FORM MANAGEMENT
 // ============================================
 

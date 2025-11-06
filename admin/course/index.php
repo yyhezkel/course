@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ניהול תלמידים - קורס</title>
     <link rel="stylesheet" href="../admin.css">
+    <script src="../utils.js"></script>
 </head>
 <body class="admin-body">
     <?php
@@ -19,13 +20,40 @@
         <div class="page-header">
             <h1>ניהול תלמידים</h1>
             <div class="header-actions">
+                <!-- Sort Dropdown -->
+                <div class="sort-dropdown">
+                    <button class="sort-btn" onclick="toggleSortMenu()">
+                        🔽 מיון
+                    </button>
+                    <div class="sort-menu" id="sortMenu">
+                        <div class="sort-option active" data-sort="id" onclick="setSortOption('id', 'desc')">
+                            <span>לפי תאריך הוספה</span>
+                            <span class="sort-option-icon">✓</span>
+                        </div>
+                        <div class="sort-option" data-sort="tz" onclick="setSortOption('tz', 'asc')">
+                            <span>לפי ת.ז.</span>
+                        </div>
+                        <div class="sort-option" data-sort="progress" onclick="setSortOption('progress', 'desc')">
+                            <span>לפי התקדמות</span>
+                        </div>
+                        <div class="sort-option" data-sort="last_login" onclick="setSortOption('last_login', 'desc')">
+                            <span>לפי כניסה אחרונה</span>
+                        </div>
+                        <div class="sort-option" data-sort="tasks" onclick="setSortOption('tasks', 'desc')">
+                            <span>לפי מספר משימות</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-secondary" onclick="exportAllUsers()">
+                    📤 ייצוא הכל
+                </button>
                 <button class="btn btn-success" onclick="showCreateStudentModal()">
                     ➕ הוסף תלמיד
                 </button>
                 <button class="btn btn-secondary" onclick="showBulkImportModal()">
                     📥 ייבוא מרובה
                 </button>
-                <a href="../dashboard.html" class="btn btn-secondary">חזרה לדשבורד</a>
             </div>
         </div>
 
@@ -60,11 +88,44 @@
 
         let allUsers = [];
         let currentFilter = 'all';
+        let currentSort = { field: 'id', direction: 'desc' };
 
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
             loadUsers();
             setupEventListeners();
+        });
+
+        // Sort menu toggle
+        function toggleSortMenu() {
+            const menu = document.getElementById('sortMenu');
+            menu.classList.toggle('active');
+        }
+
+        // Set sort option
+        function setSortOption(field, direction) {
+            currentSort = { field, direction };
+
+            // Update active state
+            document.querySelectorAll('.sort-option').forEach(opt => {
+                opt.classList.remove('active');
+                opt.querySelector('.sort-option-icon')?.remove();
+            });
+
+            const activeOption = document.querySelector(`[data-sort="${field}"]`);
+            activeOption.classList.add('active');
+            activeOption.innerHTML += '<span class="sort-option-icon">✓</span>';
+
+            // Close menu and re-render
+            toggleSortMenu();
+            filterAndRenderUsers();
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.sort-dropdown')) {
+                document.getElementById('sortMenu')?.classList.remove('active');
+            }
         });
 
         async function checkAuth() {
@@ -101,10 +162,12 @@
         }
 
         function setupEventListeners() {
-            // Search input
-            document.getElementById('searchInput').addEventListener('input', (e) => {
+            // Search input with debouncing
+            const debouncedSearch = debounce(() => {
                 filterAndRenderUsers();
-            });
+            }, 300);
+
+            document.getElementById('searchInput').addEventListener('input', debouncedSearch);
 
             // Filter buttons
             document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -154,7 +217,7 @@
                 // Search filter
                 const matchesSearch = !searchTerm ||
                     user.tz.toLowerCase().includes(searchTerm) ||
-                    (user.name && user.name.toLowerCase().includes(searchTerm));
+                    (user.full_name && user.full_name.toLowerCase().includes(searchTerm));
 
                 // Status filter
                 let matchesFilter = true;
@@ -171,6 +234,41 @@
                 }
 
                 return matchesSearch && matchesFilter;
+            });
+
+            // Apply sorting
+            filtered.sort((a, b) => {
+                let aVal, bVal;
+
+                switch (currentSort.field) {
+                    case 'tz':
+                        aVal = a.tz;
+                        bVal = b.tz;
+                        break;
+                    case 'progress':
+                        aVal = a.total_tasks > 0 ? (a.completed_tasks / a.total_tasks) : 0;
+                        bVal = b.total_tasks > 0 ? (b.completed_tasks / b.total_tasks) : 0;
+                        break;
+                    case 'last_login':
+                        aVal = a.last_login ? new Date(a.last_login).getTime() : 0;
+                        bVal = b.last_login ? new Date(b.last_login).getTime() : 0;
+                        break;
+                    case 'tasks':
+                        aVal = a.total_tasks;
+                        bVal = b.total_tasks;
+                        break;
+                    case 'id':
+                    default:
+                        aVal = a.id;
+                        bVal = b.id;
+                        break;
+                }
+
+                if (currentSort.direction === 'asc') {
+                    return aVal > bVal ? 1 : -1;
+                } else {
+                    return aVal < bVal ? 1 : -1;
+                }
             });
 
             renderUsers(filtered);
@@ -200,14 +298,19 @@
                 const isActive = !user.is_blocked;
                 const statusBadge = isActive ? 'active' : 'inactive';
                 const statusText = isActive ? 'פעיל' : 'לא פעיל';
+                const displayName = user.full_name || user.tz;
 
                 return `
                     <div class="user-card ${!isActive ? 'inactive' : ''}" onclick="openUserDetail(${user.id})">
+                        <!-- Batch Selection Checkbox -->
+                        <input type="checkbox" class="user-card-checkbox" data-user-id="${user.id}"
+                               onclick="event.stopPropagation(); batchManager.toggleItem(${user.id})">
+
                         <div class="user-card-header">
                             <div style="display: flex; align-items: center; flex: 1;">
                                 <div class="user-avatar">${initials}</div>
                                 <div class="user-info">
-                                    <h3 class="user-name">${user.tz}</h3>
+                                    <h3 class="user-name">${displayName}</h3>
                                     <p class="user-id">מספר זיהוי: ${user.tz}</p>
                                 </div>
                             </div>
@@ -269,7 +372,7 @@
 
         // Show create student modal
         function showCreateStudentModal() {
-            showModal('הוסף תלמיד חדש', `
+            modalManager.show('הוסף תלמיד חדש', `
                 <form id="create-student-form">
                     <div class="form-group">
                         <label class="form-label">סוג מזהה *</label>
@@ -298,7 +401,7 @@
                 {
                     text: 'בטל',
                     class: 'btn-secondary',
-                    onclick: 'closeModal()'
+                    onclick: 'modalManager.close()'
                 },
                 {
                     text: 'הוסף תלמיד',
@@ -336,7 +439,7 @@
             const fullName = document.getElementById('new-fullname').value.trim();
 
             if (!tz) {
-                alert('נא למלא מספר זיהוי');
+                toast.warning('נא למלא מספר זיהוי');
                 return;
             }
 
@@ -344,7 +447,7 @@
             const idTypeName = idType === 'personal_number' ? 'מספר אישי' : 'תעודת זהות';
 
             if (tz.length !== expectedLength || !/^\d+$/.test(tz)) {
-                alert(`${idTypeName} חייב להיות ${expectedLength} ספרות`);
+                toast.error(`${idTypeName} חייב להיות ${expectedLength} ספרות`);
                 return;
             }
 
@@ -364,21 +467,21 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('תלמיד נוצר בהצלחה!');
-                    closeModal();
+                    toast.success('תלמיד נוצר בהצלחה!');
+                    modalManager.close();
                     loadUsers();
                 } else {
-                    alert(result.message || 'שגיאה ביצירת תלמיד');
+                    toast.error(result.message || 'שגיאה ביצירת תלמיד');
                 }
             } catch (error) {
                 console.error('Error creating student:', error);
-                alert('שגיאה ביצירת תלמיד');
+                toast.error('שגיאה ביצירת תלמיד');
             }
         }
 
         // Show bulk import modal
         function showBulkImportModal() {
-            showModal('ייבוא מרובה של תלמידים', `
+            modalManager.show('ייבוא מרובה של תלמידים', `
                 <form id="bulk-import-form">
                     <div class="form-group">
                         <label class="form-label">נתוני תלמידים *</label>
@@ -399,7 +502,7 @@
                 {
                     text: 'בטל',
                     class: 'btn-secondary',
-                    onclick: 'closeModal()'
+                    onclick: 'modalManager.close()'
                 },
                 {
                     text: 'ייבא תלמידים',
@@ -414,7 +517,7 @@
             const csvData = document.getElementById('bulk-csv-data').value.trim();
 
             if (!csvData) {
-                alert('נא להזין נתוני תלמידים');
+                toast.warning('נא להזין נתוני תלמידים');
                 return;
             }
 
@@ -432,19 +535,18 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    let message = result.message;
+                    toast.success(result.message);
                     if (result.errors && result.errors.length > 0) {
-                        message += '\\n\\nשגיאות:\\n' + result.errors.join('\\n');
+                        toast.warning('יש שגיאות בחלק מהשורות');
                     }
-                    alert(message);
-                    closeModal();
+                    modalManager.close();
                     loadUsers();
                 } else {
-                    alert(result.message || 'שגיאה בייבוא תלמידים');
+                    toast.error(result.message || 'שגיאה בייבוא תלמידים');
                 }
             } catch (error) {
                 console.error('Error importing students:', error);
-                alert('שגיאה בייבוא תלמידים');
+                toast.error('שגיאה בייבוא תלמידים');
             }
         }
 
@@ -453,11 +555,11 @@
             const user = allUsers.find(u => u.id == userId);
 
             if (!user) {
-                alert('תלמיד לא נמצא');
+                toast.error('תלמיד לא נמצא');
                 return;
             }
 
-            showModal('ערוך תלמיד', `
+            modalManager.show('ערוך תלמיד', `
                 <form id="edit-student-form">
                     <input type="hidden" id="edit-user-id" value="${userId}">
 
@@ -484,7 +586,7 @@
                 {
                     text: 'בטל',
                     class: 'btn-secondary',
-                    onclick: 'closeModal()'
+                    onclick: 'modalManager.close()'
                 },
                 {
                     text: 'שמור שינויים',
@@ -516,15 +618,15 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert('תלמיד עודכן בהצלחה!');
-                    closeModal();
+                    toast.success('תלמיד עודכן בהצלחה!');
+                    modalManager.close();
                     loadUsers();
                 } else {
-                    alert(result.message || 'שגיאה בעדכון תלמיד');
+                    toast.error(result.message || 'שגיאה בעדכון תלמיד');
                 }
             } catch (error) {
                 console.error('Error updating student:', error);
-                alert('שגיאה בעדכון תלמיד');
+                toast.error('שגיאה בעדכון תלמיד');
             }
         }
 
@@ -534,73 +636,39 @@
             const action = isBlocked ? 'הפעלת' : 'השבתת';
             const newStatus = isBlocked ? 1 : 0;
 
-            if (!confirm(`האם אתה בטוח שברצונך ב${action} התלמיד ${user.tz}?`)) {
-                return;
-            }
+            modalManager.confirm(
+                `${action} תלמיד`,
+                `האם אתה בטוח שברצונך ב${action} התלמיד ${user.tz}?`,
+                async () => {
+                    try {
+                        const response = await fetch('../api.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                action: 'update_user',
+                                user_id: userId,
+                                is_active: newStatus
+                            })
+                        });
 
-            try {
-                const response = await fetch('../api.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        action: 'update_user',
-                        user_id: userId,
-                        is_active: newStatus
-                    })
-                });
+                        const result = await response.json();
 
-                const result = await response.json();
-
-                if (result.success) {
-                    alert(`תלמיד ${isBlocked ? 'הופעל' : 'הושבת'} בהצלחה!`);
-                    loadUsers();
-                } else {
-                    alert(result.message || 'שגיאה בעדכון סטטוס');
+                        if (result.success) {
+                            toast.success(`תלמיד ${isBlocked ? 'הופעל' : 'הושבת'} בהצלחה!`);
+                            loadUsers();
+                        } else {
+                            toast.error(result.message || 'שגיאה בעדכון סטטוס');
+                        }
+                    } catch (error) {
+                        console.error('Error toggling status:', error);
+                        toast.error('שגיאה בעדכון סטטוס');
+                    }
                 }
-            } catch (error) {
-                console.error('Error toggling status:', error);
-                alert('שגיאה בעדכון סטטוס');
-            }
+            );
         }
 
-        // ========================================
-        // Modal Functions
-        // ========================================
-
-        function showModal(title, content, buttons) {
-            // Create modal HTML
-            const modalHtml = `
-                <div id="modalOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;" onclick="if(event.target.id==='modalOverlay') closeModal()">
-                    <div style="background: white; border-radius: 12px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);" onclick="event.stopPropagation()">
-                        <div style="padding: 20px; border-bottom: 1px solid #e0e0e0;">
-                            <h2 style="margin: 0; color: #333;">${title}</h2>
-                        </div>
-                        <div style="padding: 20px;">
-                            ${content}
-                        </div>
-                        <div style="padding: 15px 20px; border-top: 1px solid #e0e0e0; display: flex; gap: 10px; justify-content: flex-end;">
-                            ${buttons.map(btn => `
-                                <button class="btn ${btn.class}" onclick="${btn.onclick}">${btn.text}</button>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            // Remove existing modal
-            closeModal();
-
-            // Add modal to body
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('modalOverlay');
-            if (modal) {
-                modal.remove();
-            }
-        }
+        // Modal functions are now handled by modalManager from utils.js
     </script>
 
     <script src="../admin.js"></script>
