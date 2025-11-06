@@ -136,7 +136,7 @@
 
         /* Section Node */
         .section-node {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);
             border-radius: 12px;
             padding: 1.5rem;
             margin-bottom: 2rem;
@@ -376,7 +376,7 @@
         .root-separator.drag-over,
         .root-drop-zone-bottom.drag-over {
             opacity: 1 !important;
-            background: rgba(102, 126, 234, 0.1);
+            background: rgba(212, 175, 55, 0.1);
             border-color: var(--primary-color) !important;
             transform: scaleY(1.5);
         }
@@ -948,7 +948,7 @@
                         <label class="form-label">צבע הקטגוריה</label>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
                             <input type="color" id="section-color" class="form-input"
-                                   value="#667eea" style="width: 80px; height: 40px; padding: 0.25rem; cursor: pointer;">
+                                   value="#d4af37" style="width: 80px; height: 40px; padding: 0.25rem; cursor: pointer;">
                             <span style="font-size: 0.75rem; color: var(--gray-600);">צבע זה יוצג כרקע של הקטגוריה בטופס</span>
                         </div>
                     </div>
@@ -1289,10 +1289,10 @@
             const isEmpty = block.children.length === 0;
 
             // Use custom color if set, otherwise use default gradient
-            const color = block.content.color || '#667eea';
+            const color = block.content.color || '#d4af37';
             const bgStyle = block.content.color
                 ? `background: linear-gradient(135deg, ${color} 0%, ${adjustBrightness(color, -20)} 100%);`
-                : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);';
+                : 'background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);';
 
             const position = getSiblingPosition(block.id);
 
@@ -1527,7 +1527,7 @@
                         <label class="form-label">צבע הקטגוריה</label>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
                             <input type="color" id="edit-section-color" class="form-input"
-                                   value="${block.content.color || '#667eea'}" style="width: 80px; height: 40px; padding: 0.25rem; cursor: pointer;">
+                                   value="${block.content.color || '#d4af37'}" style="width: 80px; height: 40px; padding: 0.25rem; cursor: pointer;">
                             <span style="font-size: 0.75rem; color: var(--gray-600);">צבע זה יוצג כרקע של הקטגוריה בטופס</span>
                         </div>
                     </div>
@@ -1908,7 +1908,7 @@
                 const sectionBlock = createBlock('section', {
                     title: section.title,
                     description: '',
-                    color: '#667eea'
+                    color: '#d4af37'
                 });
                 blocks.push(sectionBlock);
 
@@ -2009,10 +2009,10 @@
             function renderBlockPreview(block, depth = 0) {
                 if (block.type === 'section') {
                     // Use custom color if set, otherwise use default gradient
-                    const color = block.content.color || '#667eea';
+                    const color = block.content.color || '#d4af37';
                     const bgStyle = block.content.color
                         ? `background: linear-gradient(135deg, ${color} 0%, ${adjustBrightness(color, -20)} 100%);`
-                        : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);';
+                        : 'background: linear-gradient(135deg, #d4af37 0%, #b8941f 100%);';
 
                     let html = `
                         <div style="${bgStyle} padding: 1.5rem; border-radius: 10px; margin-bottom: 1.5rem; color: white;">
