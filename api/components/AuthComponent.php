@@ -93,13 +93,6 @@ class AuthComponent extends BaseComponent {
                     $expectedType = $expectedLength === 9 ? 'תעודת זהות (9 ספרות)' : 'מספר אישי (7 ספרות)';
                     $this->sendError(400, "מספר זה רשום כ-$expectedType");
                 }
-
-                // Check if user has credentials set
-                if (!empty($user['username']) && !empty($user['password_hash'])) {
-                    $this->sendError(403, 'עבור חשבון זה יש להתחבר באמצעות שם משתמש וסיסמה.', [
-                        'require_credentials' => true
-                    ]);
-                }
             }
         } else {
             $this->sendError(400, 'נא למלא מספר זהוי או אימייל וסיסמה.');
