@@ -346,9 +346,15 @@
                 // Show archived users only when archived filter is selected
                 const archived = currentFilter === 'archived' ? 1 : 0;
 
-                const response = await fetch('../api.php', {
+                console.log('[loadUsers] Current filter:', currentFilter, 'archived:', archived);
+
+                // Add timestamp to prevent caching
+                const response = await fetch('../api.php?t=' + Date.now(), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    },
                     credentials: 'include',
                     body: JSON.stringify({
                         action: 'get_all_users_with_progress',
@@ -361,13 +367,25 @@
                 }
 
                 const data = await response.json();
+                console.log('[loadUsers] API response:', data);
+                console.log('[loadUsers] Users loaded:', data.users?.length || 0);
 
                 if (data.success) {
                     allUsers = data.users;
 
+                    // Log first user for debugging
+                    if (allUsers.length > 0) {
+                        console.log('[loadUsers] Sample user:', {
+                            id: allUsers[0].id,
+                            tz: allUsers[0].tz,
+                            is_blocked: allUsers[0].is_blocked,
+                            is_archived: allUsers[0].is_archived
+                        });
+                    }
+
                     // Show migration warning if needed (only once per session)
                     if (data.migration_needed && !sessionStorage.getItem('migration_warning_shown')) {
-                        console.warn('Archive feature needs migration: run admin/migrate_archive.php');
+                        console.warn('⚠️ Archive feature needs migration: run admin/migrate_archive.php');
                         sessionStorage.setItem('migration_warning_shown', 'true');
                     }
 
@@ -1148,12 +1166,14 @@
         // Unarchive user
         async function unarchiveUser(userId) {
             const user = allUsers.find(u => u.id == userId);
+            console.log('[unarchiveUser] Unarchiving user:', userId, user);
 
             modalManager.confirm(
                 'החזר מארכיון',
                 `האם אתה בטוח שברצונך להחזיר את ${user.tz} מהארכיון?`,
                 async () => {
                     try {
+                        console.log('[unarchiveUser] Sending unarchive request...');
                         const response = await fetch('../api.php', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -1165,15 +1185,18 @@
                         });
 
                         const result = await response.json();
+                        console.log('[unarchiveUser] API response:', result);
 
                         if (result.success) {
                             toast.success('התלמיד הוחזר מהארכיון בהצלחה!');
+                            console.log('[unarchiveUser] Reloading users...');
                             await loadUsers();
+                            console.log('[unarchiveUser] Users reloaded successfully');
                         } else {
                             toast.error(result.message || 'שגיאה בהחזרה מארכיון');
                         }
                     } catch (error) {
-                        console.error('Error unarchiving user:', error);
+                        console.error('[unarchiveUser] Error:', error);
                         toast.error('שגיאה בהחזרה מארכיון');
                     }
                 }
