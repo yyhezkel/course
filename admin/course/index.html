@@ -339,6 +339,10 @@
 
         async function loadUsers() {
             try {
+                // Show loading state
+                document.getElementById('loading').style.display = 'flex';
+                document.getElementById('usersGrid').style.display = 'none';
+
                 // Show archived users only when archived filter is selected
                 const archived = currentFilter === 'archived' ? 1 : 0;
 
@@ -377,6 +381,9 @@
                     <p style="color: red;">שגיאה בטעינת הנתונים</p>
                     <p>${error.message}</p>
                 `;
+            } finally {
+                // Hide loading state
+                document.getElementById('loading').style.display = 'none';
             }
         }
 
@@ -1091,7 +1098,7 @@
 
                         if (result.success) {
                             toast.success(`תלמיד ${isBlocked ? 'הופעל' : 'הושבת'} בהצלחה!`);
-                            loadUsers();
+                            await loadUsers();
                         } else {
                             toast.error(result.message || 'שגיאה בעדכון סטטוס');
                         }
@@ -1126,7 +1133,7 @@
 
                         if (result.success) {
                             toast.success('התלמיד הועבר לארכיון בהצלחה!');
-                            loadUsers();
+                            await loadUsers();
                         } else {
                             toast.error(result.message || 'שגיאה בהעברה לארכיון');
                         }
@@ -1161,7 +1168,7 @@
 
                         if (result.success) {
                             toast.success('התלמיד הוחזר מהארכיון בהצלחה!');
-                            loadUsers();
+                            await loadUsers();
                         } else {
                             toast.error(result.message || 'שגיאה בהחזרה מארכיון');
                         }
