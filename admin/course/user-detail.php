@@ -237,6 +237,8 @@
                 const statusText = getStatusText(task.status);
                 const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString('he-IL') : null;
                 const needsReview = task.status === 'needs_review';
+                const hasGrade = task.grade !== null && task.grade !== undefined;
+                const hasFeedback = task.feedback && task.feedback.trim();
 
                 return `
                     <div class="task-item ${task.status.replace('_', '-')}">
@@ -249,18 +251,62 @@
                             ${task.estimated_duration ? `<span>⏱️ ${task.estimated_duration} דקות</span>` : ''}
                             ${task.points ? `<span>⭐ ${task.points} נקודות</span>` : ''}
                             ${dueDate ? `<span>📅 ${dueDate}</span>` : ''}
+                            ${hasGrade ? `<span style="font-weight: bold; color: #2563eb;">📊 ציון: ${task.grade}%</span>` : ''}
                         </div>
+                        ${hasFeedback ? `
+                            <div style="background: #f3f4f6; padding: 10px; border-radius: 6px; margin: 10px 0; border-right: 3px solid #2563eb;">
+                                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">משוב מהמנחה:</div>
+                                <div style="font-size: 13px; color: #374151;">${task.feedback}</div>
+                            </div>
+                        ` : ''}
                         <div class="task-actions">
                             ${needsReview ? `
-                                <button class="task-action-btn approve" onclick="reviewTask(${task.id}, 'approved')">✓ אישור</button>
-                                <button class="task-action-btn reject" onclick="toggleReviewSection(${task.id})">✗ דחייה</button>
+                                <button class="task-action-btn approve" onclick="toggleReviewSection(${task.id}, 'approve')">✓ אישור</button>
+                                <button class="task-action-btn reject" onclick="toggleReviewSection(${task.id}, 'reject')">✗ דחייה</button>
                             ` : ''}
                             <button class="task-action-btn view" onclick="viewTaskResponses(${task.id})">צפייה בתשובות</button>
+                            <button class="task-action-btn" style="background: #f59e0b;" onclick="resetTask(${task.id})">🔄 איפוס</button>
+                            <button class="task-action-btn" style="background: #ef4444;" onclick="removeTask(${task.id})">🗑️ הסרה</button>
                         </div>
                         <div class="review-section" id="review-${task.id}">
-                            <textarea id="review-notes-${task.id}" placeholder="הערות לתלמיד..." rows="3"></textarea>
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 5px;">
+                                    ציון (0-100%):
+                                </label>
+                                <input
+                                    type="number"
+                                    id="review-grade-${task.id}"
+                                    min="0"
+                                    max="100"
+                                    placeholder="הזן ציון (אופציונלי)"
+                                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;"
+                                />
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 5px;">
+                                    משוב/הסבר:
+                                </label>
+                                <textarea
+                                    id="review-feedback-${task.id}"
+                                    placeholder="הוסף משוב או הסבר לתלמיד..."
+                                    rows="3"
+                                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;"
+                                ></textarea>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 5px;">
+                                    הערות פנימיות (לא נשלחות לתלמיד):
+                                </label>
+                                <textarea
+                                    id="review-notes-${task.id}"
+                                    placeholder="הערות פנימיות למנחה..."
+                                    rows="2"
+                                    style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;"
+                                ></textarea>
+                            </div>
                             <div class="review-actions">
-                                <button class="task-action-btn reject" onclick="reviewTask(${task.id}, 'rejected')">שלח דחייה</button>
+                                <button class="task-action-btn approve" onclick="submitReview(${task.id}, 'approved')">✓ שלח אישור</button>
+                                <button class="task-action-btn reject" onclick="submitReview(${task.id}, 'rejected')">✗ שלח דחייה</button>
                                 <button class="task-action-btn view" onclick="toggleReviewSection(${task.id})">ביטול</button>
                             </div>
                         </div>
@@ -269,19 +315,26 @@
             }).join('');
         }
 
-        function toggleReviewSection(taskId) {
+        function toggleReviewSection(taskId, action) {
             const section = document.getElementById(`review-${taskId}`);
             section.classList.toggle('active');
         }
 
-        async function reviewTask(userTaskId, newStatus) {
-            let reviewNotes = '';
-            if (newStatus === 'rejected') {
-                reviewNotes = document.getElementById(`review-notes-${userTaskId}`).value;
-                if (!reviewNotes.trim()) {
-                    alert('אנא הוסף הערות לדחייה');
-                    return;
-                }
+        async function submitReview(userTaskId, newStatus) {
+            const reviewNotes = document.getElementById(`review-notes-${userTaskId}`).value;
+            const feedback = document.getElementById(`review-feedback-${userTaskId}`).value;
+            const gradeInput = document.getElementById(`review-grade-${userTaskId}`);
+            const grade = gradeInput.value ? parseFloat(gradeInput.value) : null;
+
+            // Validate grade if provided
+            if (grade !== null && (grade < 0 || grade > 100)) {
+                alert('הציון חייב להיות בין 0 ל-100');
+                return;
+            }
+
+            if (newStatus === 'rejected' && !feedback.trim()) {
+                alert('אנא הוסף משוב לדחייה');
+                return;
             }
 
             if (!confirm(`האם אתה בטוח שברצונך ${newStatus === 'approved' ? 'לאשר' : 'לדחות'} את המשימה?`)) {
@@ -297,7 +350,9 @@
                         action: 'review_task',
                         user_task_id: userTaskId,
                         status: newStatus,
-                        review_notes: reviewNotes
+                        review_notes: reviewNotes,
+                        grade: grade,
+                        feedback: feedback
                     })
                 });
 
@@ -311,6 +366,64 @@
             } catch (error) {
                 console.error('Error reviewing task:', error);
                 alert('שגיאה בעדכון הסטטוס');
+            }
+        }
+
+        async function resetTask(userTaskId) {
+            if (!confirm('האם אתה בטוח שברצונך לאפס את המשימה? כל ההתקדמות והציונים יימחקו.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'reset_user_task',
+                        user_task_id: userTaskId
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('המשימה אופסה בהצלחה');
+                    await loadUserData(); // Reload data
+                } else {
+                    alert('שגיאה: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error resetting task:', error);
+                alert('שגיאה באיפוס המשימה');
+            }
+        }
+
+        async function removeTask(userTaskId) {
+            if (!confirm('האם אתה בטוח שברצונך להסיר את המשימה לגמרי? פעולה זו לא ניתנת לביטול!')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'remove_user_task',
+                        user_task_id: userTaskId
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('המשימה הוסרה בהצלחה');
+                    await loadUserData(); // Reload data
+                } else {
+                    alert('שגיאה: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error removing task:', error);
+                alert('שגיאה בהסרת המשימה');
             }
         }
 
