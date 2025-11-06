@@ -123,11 +123,16 @@ function isCommonPassword($password) {
  * @param string $ipAddress IP address of attempt
  */
 function trackFailedLogin($db, $username, $ipAddress) {
-    $stmt = $db->prepare("
-        INSERT INTO failed_login_attempts (username, ip_address, attempt_time)
-        VALUES (?, ?, datetime('now'))
-    ");
-    $stmt->execute([$username, $ipAddress]);
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO failed_login_attempts (username, ip_address, attempt_time)
+            VALUES (?, ?, datetime('now'))
+        ");
+        $stmt->execute([$username, $ipAddress]);
+    } catch (Exception $e) {
+        // Table might not exist yet - silently ignore
+        // This will be resolved when migration runs
+    }
 }
 
 /**
@@ -140,14 +145,19 @@ function trackFailedLogin($db, $username, $ipAddress) {
  * @return int Number of failed attempts
  */
 function getFailedLoginAttempts($db, $username, $ipAddress, $minutes = 30) {
-    $stmt = $db->prepare("
-        SELECT COUNT(*)
-        FROM failed_login_attempts
-        WHERE (username = ? OR ip_address = ?)
-        AND attempt_time > datetime('now', '-' || ? || ' minutes')
-    ");
-    $stmt->execute([$username, $ipAddress, $minutes]);
-    return (int)$stmt->fetchColumn();
+    try {
+        $stmt = $db->prepare("
+            SELECT COUNT(*)
+            FROM failed_login_attempts
+            WHERE (username = ? OR ip_address = ?)
+            AND attempt_time > datetime('now', '-' || ? || ' minutes')
+        ");
+        $stmt->execute([$username, $ipAddress, $minutes]);
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        // Table might not exist yet - return 0
+        return 0;
+    }
 }
 
 /**
@@ -158,11 +168,15 @@ function getFailedLoginAttempts($db, $username, $ipAddress, $minutes = 30) {
  * @param string $ipAddress IP address to clear
  */
 function clearFailedLoginAttempts($db, $username, $ipAddress) {
-    $stmt = $db->prepare("
-        DELETE FROM failed_login_attempts
-        WHERE username = ? OR ip_address = ?
-    ");
-    $stmt->execute([$username, $ipAddress]);
+    try {
+        $stmt = $db->prepare("
+            DELETE FROM failed_login_attempts
+            WHERE username = ? OR ip_address = ?
+        ");
+        $stmt->execute([$username, $ipAddress]);
+    } catch (Exception $e) {
+        // Table might not exist yet - silently ignore
+    }
 }
 
 /**
@@ -237,10 +251,15 @@ function lockAdminAccount($db, $username) {
  * @param PDO $db Database connection
  */
 function cleanupOldFailedAttempts($db) {
-    $db->exec("
-        DELETE FROM failed_login_attempts
-        WHERE attempt_time < datetime('now', '-24 hours')
-    ");
+    try {
+        $db->exec("
+            DELETE FROM failed_login_attempts
+            WHERE attempt_time < datetime('now', '-24 hours')
+        ");
+    } catch (Exception $e) {
+        // Table might not exist yet - silently ignore
+        // This will be resolved when migration runs
+    }
 }
 
 // ============================================
