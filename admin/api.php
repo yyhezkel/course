@@ -428,6 +428,27 @@ if ($action === 'archive_user') {
             exit;
         }
 
+        // Check if is_archived column exists
+        $columnsResult = $db->query("PRAGMA table_info(users)");
+        $columns = $columnsResult->fetchAll(PDO::FETCH_ASSOC);
+        $hasArchivedColumn = false;
+        foreach ($columns as $column) {
+            if ($column['name'] === 'is_archived') {
+                $hasArchivedColumn = true;
+                break;
+            }
+        }
+
+        if (!$hasArchivedColumn) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'יש להריץ את תסריט ההגירה לפני שימוש בתכונת הארכיון',
+                'migration_needed' => true
+            ]);
+            exit;
+        }
+
         // Archive user (set is_archived = 1)
         $stmt = $db->prepare("
             UPDATE users
@@ -454,6 +475,27 @@ if ($action === 'unarchive_user') {
         if (empty($userId)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'מזהה משתמש נדרש']);
+            exit;
+        }
+
+        // Check if is_archived column exists
+        $columnsResult = $db->query("PRAGMA table_info(users)");
+        $columns = $columnsResult->fetchAll(PDO::FETCH_ASSOC);
+        $hasArchivedColumn = false;
+        foreach ($columns as $column) {
+            if ($column['name'] === 'is_archived') {
+                $hasArchivedColumn = true;
+                break;
+            }
+        }
+
+        if (!$hasArchivedColumn) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'יש להריץ את תסריט ההגירה לפני שימוש בתכונת הארכיון',
+                'migration_needed' => true
+            ]);
             exit;
         }
 
@@ -1544,15 +1586,45 @@ if ($action === 'get_all_users_with_progress') {
         // archived=0 or not set -> only non-archived users
         $archivedFilter = isset($input['archived']) ? (int)$input['archived'] : 0;
 
-        // Add is_archived check with default to 0 for backward compatibility
-        $stmt = $db->query("
+        // Check if is_archived column exists
+        $columnsResult = $db->query("PRAGMA table_info(users)");
+        $columns = $columnsResult->fetchAll(PDO::FETCH_ASSOC);
+        $hasArchivedColumn = false;
+        foreach ($columns as $column) {
+            if ($column['name'] === 'is_archived') {
+                $hasArchivedColumn = true;
+                break;
+            }
+        }
+
+        // Build query based on whether is_archived column exists
+        if ($hasArchivedColumn) {
+            $whereClause = "WHERE COALESCE(u.is_archived, 0) = $archivedFilter";
+            $selectArchived = "COALESCE(u.is_archived, 0) as is_archived,";
+        } else {
+            // If column doesn't exist, show all users when archived=0, none when archived=1
+            if ($archivedFilter === 1) {
+                // Return empty result for archived filter if column doesn't exist
+                echo json_encode([
+                    'success' => true,
+                    'users' => [],
+                    'archived' => $archivedFilter,
+                    'migration_needed' => true
+                ]);
+                exit;
+            }
+            $whereClause = "";
+            $selectArchived = "0 as is_archived,";
+        }
+
+        $query = "
             SELECT
                 u.id,
                 u.tz,
                 u.full_name,
                 u.is_blocked,
                 u.is_active,
-                COALESCE(u.is_archived, 0) as is_archived,
+                $selectArchived
                 u.last_login,
                 COUNT(DISTINCT ut.id) as total_tasks,
                 COUNT(DISTINCT CASE WHEN ut.status IN ('completed', 'approved') THEN ut.id END) as completed_tasks,
@@ -1560,11 +1632,12 @@ if ($action === 'get_all_users_with_progress') {
                 COUNT(DISTINCT CASE WHEN ut.status = 'needs_review' THEN ut.id END) as review_tasks
             FROM users u
             LEFT JOIN user_tasks ut ON u.id = ut.user_id
-            WHERE COALESCE(u.is_archived, 0) = $archivedFilter
+            $whereClause
             GROUP BY u.id
             ORDER BY u.id DESC
-        ");
+        ";
 
+        $stmt = $db->query($query);
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch tasks for each user
@@ -1581,7 +1654,8 @@ if ($action === 'get_all_users_with_progress') {
         echo json_encode([
             'success' => true,
             'users' => $users,
-            'archived' => $archivedFilter
+            'archived' => $archivedFilter,
+            'migration_needed' => !$hasArchivedColumn
         ]);
     } catch (Exception $e) {
         http_response_code(500);
