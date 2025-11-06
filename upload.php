@@ -57,14 +57,17 @@ try {
     error_log("Table creation error: " . $e->getMessage());
 }
 
-// Create uploads directory if it doesn't exist
-$uploadsDir = __DIR__ . '/uploads';
-$userUploadsDir = $uploadsDir . '/users';
-$materialsDir = $uploadsDir . '/materials';
+// Create uploads directory if it doesn't exist (using same structure as admin materials and profile photos)
+$uploadDir = '/www/wwwroot/qr.bot4wa.com/files/kodkod-uplodes/task-submissions/';
 
-if (!is_dir($uploadsDir)) mkdir($uploadsDir, 0755, true);
-if (!is_dir($userUploadsDir)) mkdir($userUploadsDir, 0755, true);
-if (!is_dir($materialsDir)) mkdir($materialsDir, 0755, true);
+if (!is_dir($uploadDir)) {
+    if (!mkdir($uploadDir, 0755, true)) {
+        http_response_code(500);
+        error_log("Failed to create upload directory: " . $uploadDir);
+        echo json_encode(['success' => false, 'message' => 'שגיאה ביצירת תיקיית העלאה']);
+        exit;
+    }
+}
 
 // Handle file upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
@@ -133,15 +136,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
         // Create unique filename
         $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
         $filename = uniqid('task_' . $userTaskId . '_') . '.' . $extension;
-        $filepath = $userUploadsDir . '/' . $filename;
+        $uploadPath = $uploadDir . $filename;
 
         // Move uploaded file
-        if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+        if (!move_uploaded_file($file['tmp_name'], $uploadPath)) {
             throw new Exception('Failed to save file');
         }
 
-        // Save file info to database
-        $relativeFilepath = 'uploads/users/' . $filename;
+        // Verify file was saved
+        if (!file_exists($uploadPath)) {
+            http_response_code(500);
+            error_log("File not found after upload: " . $uploadPath);
+            throw new Exception('שגיאה: הקובץ לא נמצא לאחר העלאה');
+        }
+
+        // Save file info to database with full URL (consistent with admin materials and profile photos)
+        $fileUrl = 'https://qr.bot4wa.com/files/kodkod-uplodes/task-submissions/' . $filename;
         $stmt = $db->prepare("
             INSERT INTO task_submissions (user_task_id, filename, original_filename, filepath, filesize, mime_type, description, uploaded_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
@@ -150,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
             $userTaskId,
             $filename,
             $file['name'],
-            $relativeFilepath,
+            $fileUrl,
             $file['size'],
             $mimeType,
             $description
