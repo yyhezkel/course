@@ -30,7 +30,7 @@ class TaskComponent extends BaseComponent {
 
         try {
             // Get user details
-            $stmt = $this->db->prepare("SELECT tz, id_type, full_name, username FROM users WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT tz, id_type, full_name, username, profile_photo FROM users WHERE id = ?");
             $stmt->execute([$userId]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
