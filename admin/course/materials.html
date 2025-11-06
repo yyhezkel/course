@@ -493,7 +493,13 @@
             if (material.external_url) {
                 window.open(material.external_url, '_blank');
             } else if (material.file_path) {
-                window.open('../../' + material.file_path, '_blank');
+                // Check if file_path is already a full URL
+                if (material.file_path.startsWith('http://') || material.file_path.startsWith('https://')) {
+                    window.open(material.file_path, '_blank');
+                } else {
+                    // Legacy support for relative paths
+                    window.open('../../' + material.file_path, '_blank');
+                }
             }
         }
 
