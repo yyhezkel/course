@@ -290,7 +290,7 @@
                                 <button class="task-action-btn reject" onclick="toggleReviewSection(${task.id}, 'reject')">✗ דחייה</button>
                             ` : ''}
                             ${task.status === 'needs_review' ? `
-                                <button class="task-action-btn" style="background: #8b5cf6;" onclick="setTaskChecking(${task.id})">🔍 סמן בבדיקה</button>
+                                <button class="task-action-btn" style="background: #c4a040;" onclick="setTaskChecking(${task.id})">🔍 סמן בבדיקה</button>
                             ` : ''}
                             <button class="task-action-btn view" onclick="viewTaskResponses(${task.id})">📋 תשובות טופס</button>
                             <button class="task-action-btn" style="background: #f59e0b;" onclick="resetTask(${task.id})">🔄 איפוס</button>

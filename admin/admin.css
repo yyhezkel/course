@@ -6,7 +6,9 @@
 :root {
     --sidebar-width: 260px;
     --header-height: 80px;
-    --primary-color: #6366f1;
+    --primary-color: #d4af37;
+    --primary-dark: #b8941f;
+    --primary-light: #f0d876;
     --danger-color: #dc2626;
     --success-color: #10b981;
     --warning-color: #f59e0b;
@@ -96,7 +98,7 @@
 }
 
 .nav-item.active {
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(212, 175, 55, 0.1);
     color: white;
     border-right-color: var(--primary-color);
 }
@@ -268,7 +270,7 @@
 }
 
 .action-card {
-    background: linear-gradient(135deg, var(--primary-color) 0%, #4f46e5 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     color: white;
     padding: 1.5rem;
     border-radius: 12px;
@@ -279,7 +281,7 @@
 
 .action-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 8px 20px rgba(212, 175, 55, 0.3);
 }
 
 .action-icon {
@@ -364,13 +366,13 @@
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary-color) 0%, #4f46e5 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     color: white;
 }
 
 .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
 }
 
 .btn-danger {
@@ -425,7 +427,7 @@
 }
 
 .badge-info {
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(212, 175, 55, 0.1);
     color: var(--primary-color);
 }
 
@@ -1072,9 +1074,9 @@
 }
 
 .alert-info {
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(212, 175, 55, 0.1);
     color: var(--primary-color);
-    border: 1px solid rgba(99, 102, 241, 0.3);
+    border: 1px solid rgba(212, 175, 55, 0.3);
 }
 
 /* ============================================
@@ -1128,7 +1130,7 @@
 }
 
 .nav-link.active {
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(212, 175, 55, 0.1);
     color: white;
     border-right-color: var(--primary-color);
 }
@@ -1223,9 +1225,9 @@
 }
 
 .filter-btn.active {
-    background: #667eea;
+    background: var(--primary-color);
     color: white;
-    border-color: #667eea;
+    border-color: var(--primary-color);
 }
 
 .users-grid {
@@ -1242,7 +1244,7 @@
     padding: 20px;
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
-    border-top: 4px solid #667eea;
+    border-top: 4px solid var(--primary-color);
 }
 
 .user-card:hover {
@@ -1266,7 +1268,7 @@
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1331,7 +1333,7 @@
 
 .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     transition: width 0.5s ease;
 }
 
@@ -1352,7 +1354,7 @@
 .stat-number {
     font-size: 20px;
     font-weight: bold;
-    color: #667eea;
+    color: var(--primary-color);
 }
 
 .stat-label {
@@ -1377,12 +1379,12 @@
 }
 
 .user-action-btn.primary {
-    background: #667eea;
+    background: var(--primary-color);
     color: white;
 }
 
 .user-action-btn.primary:hover {
-    background: #5568d3;
+    background: var(--primary-dark);
 }
 
 .user-action-btn.secondary {
@@ -1410,7 +1412,7 @@
    ======================================== */
 
 .back-link {
-    color: #667eea;
+    color: var(--primary-color);
     text-decoration: none;
     display: inline-flex;
     align-items: center;
@@ -1423,7 +1425,7 @@
 }
 
 .user-header-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     color: white;
     padding: 30px;
     border-radius: 10px;
@@ -1464,7 +1466,7 @@
 
 .btn-white {
     background: white;
-    color: #667eea;
+    color: var(--primary-color);
 }
 
 .btn-white:hover {
@@ -1489,7 +1491,7 @@
 .stat-card .stat-number {
     font-size: 36px;
     font-weight: bold;
-    color: #667eea;
+    color: var(--primary-color);
     margin-bottom: 5px;
 }
 
@@ -1522,7 +1524,7 @@
 
 .progress-bar-fill-large {
     height: 100%;
-    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1548,7 +1550,7 @@
 }
 
 .task-item {
-    border-right: 4px solid #667eea;
+    border-right: 4px solid var(--primary-color);
     padding: 15px;
     background: #f8f9fa;
     border-radius: 5px;
@@ -1832,7 +1834,7 @@
 .editor-card h3 {
     margin-top: 0;
     color: #333;
-    border-bottom: 2px solid #667eea;
+    border-bottom: 2px solid var(--primary-color);
     padding-bottom: 10px;
     margin-bottom: 20px;
 }
@@ -1865,8 +1867,8 @@
 
 .form-control:focus {
     outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
 textarea.form-control {
@@ -1934,7 +1936,7 @@ textarea.form-control {
 
 .spinner {
     border: 3px solid #f3f3f3;
-    border-top: 3px solid #667eea;
+    border-top: 3px solid var(--primary-color);
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -2062,7 +2064,7 @@ textarea.form-control {
 }
 
 .toast.info .toast-icon {
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(212, 175, 55, 0.1);
     color: var(--primary-color);
 }
 
@@ -2208,11 +2210,11 @@ textarea.form-control {
     bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
-    background: linear-gradient(135deg, var(--primary-color) 0%, #4f46e5 100%);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     color: white;
     padding: 16px 24px;
     border-radius: 50px;
-    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.4);
     display: flex;
     align-items: center;
     gap: 16px;
@@ -2309,7 +2311,7 @@ textarea.form-control {
 
 .user-card.selected {
     border-color: var(--primary-color);
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3);
     transform: translateY(-2px);
 }
 
@@ -2376,7 +2378,7 @@ textarea.form-control {
 }
 
 .sort-option.active {
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(212, 175, 55, 0.1);
     color: var(--primary-color);
     font-weight: 600;
 }
@@ -2628,11 +2630,11 @@ textarea.form-control {
 }
 
 .users-table tbody tr.selected {
-    background: rgba(99, 102, 241, 0.05);
+    background: rgba(212, 175, 55, 0.05);
 }
 
 .users-table tbody tr.editing {
-    background: rgba(99, 102, 241, 0.1);
+    background: rgba(212, 175, 55, 0.1);
 }
 
 .users-table td {

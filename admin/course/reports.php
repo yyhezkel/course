@@ -58,7 +58,7 @@
                     <div class="editor-card">
                         <h3>שיעור השלמה כללי</h3>
                         <div style="text-align: center; padding: 20px;">
-                            <div style="font-size: 48px; font-weight: bold; color: #667eea;" id="completionRate">0%</div>
+                            <div style="font-size: 48px; font-weight: bold; color: #d4af37;" id="completionRate">0%</div>
                             <div style="color: #666; margin-top: 10px;">מכלל המשימות שהוקצו</div>
                         </div>
                     </div>
@@ -154,12 +154,12 @@
         }
 
         .tab-btn:hover {
-            color: #667eea;
+            color: #d4af37;
         }
 
         .tab-btn.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
+            color: #d4af37;
+            border-bottom-color: #d4af37;
         }
 
         .tab-content {
@@ -310,7 +310,7 @@
                     </td>
                     <td>${performer.total_tasks}</td>
                     <td>${performer.completed_tasks}</td>
-                    <td><strong style="color: #667eea;">${performer.completion_rate}%</strong></td>
+                    <td><strong style="color: #d4af37;">${performer.completion_rate}%</strong></td>
                 `;
                 tbody.appendChild(row);
             });
@@ -349,7 +349,7 @@
                         <span>${stat.completed}/${stat.total} (${completionRate}%)</span>
                     </div>
                     <div style="width: 100%; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden;">
-                        <div style="height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); width: ${completionRate}%;"></div>
+                        <div style="height: 100%; background: linear-gradient(90deg, #d4af37 0%, #b8941f 100%); width: ${completionRate}%;"></div>
                     </div>
                 `;
 
@@ -429,7 +429,7 @@
                     <td>${student.in_progress}</td>
                     <td>${student.pending}</td>
                     <td>${student.needs_review}</td>
-                    <td><strong style="color: #667eea;">${student.completion_percentage || 0}%</strong></td>
+                    <td><strong style="color: #d4af37;">${student.completion_percentage || 0}%</strong></td>
                 `;
                 tbody.appendChild(row);
             });
@@ -499,7 +499,7 @@
                     <td>${task.in_progress_count || 0}</td>
                     <td>${task.pending_count || 0}</td>
                     <td>${task.needs_review_count || 0}</td>
-                    <td><strong style="color: #667eea;">${task.completion_rate || 0}%</strong></td>
+                    <td><strong style="color: #d4af37;">${task.completion_rate || 0}%</strong></td>
                 `;
                 tbody.appendChild(row);
             });

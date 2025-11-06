@@ -83,7 +83,7 @@
                     <div class="form-help">מקסימום 50MB. סוגי קבצים נתמכים: מסמכים, תמונות, וידאו, אודיו, ארכיונים</div>
                     <div id="uploadProgress" style="display: none; margin-top: 10px;">
                         <div style="width: 100%; height: 20px; background: #e0e0e0; border-radius: 10px; overflow: hidden;">
-                            <div id="progressBar" style="height: 100%; background: #667eea; width: 0%; transition: width 0.3s;"></div>
+                            <div id="progressBar" style="height: 100%; background: #d4af37; width: 0%; transition: width 0.3s;"></div>
                         </div>
                     </div>
                 </div>
