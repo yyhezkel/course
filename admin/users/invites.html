@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>הזמנות הרשמה - מערכת ניהול</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="admin.css">
+    <style>
+        .page-actions {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .invites-table {
+            width: 100%;
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .invites-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .invites-table th {
+            background: var(--gray-50);
+            padding: 1rem;
+            text-align: right;
+            font-weight: 600;
+            color: var(--gray-700);
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .invites-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .invites-table tr:hover {
+            background: var(--gray-50);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-used {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-expired {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-revoked {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--blue-100);
+            color: var(--blue-800);
+        }
+
+        .link-box {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            background: var(--gray-50);
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+        }
+
+        .link-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+            background: transparent;
+        }
+
+        .btn-icon:hover {
+            background: var(--gray-100);
+            transform: scale(1.1);
+        }
+
+        .btn-icon.btn-danger:hover {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            margin: 0 0 0.5rem 0;
+            color: var(--gray-900);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        .success-box {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .success-box h3 {
+            margin: 0 0 0.5rem 0;
+            color: #166534;
+        }
+
+        .copy-link-box {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .copy-link-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 0.5rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--gray-500);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="admin-body">
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileMenu()">☰</button>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileMenu()"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">👨‍💼</div>
+            <h2>פאנל ניהול</h2>
+            <p class="admin-name" id="admin-name">טוען...</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="./dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>לוח בקרה</span>
+            </a>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #999; font-weight: bold; margin-top: 10px;">ניהול מערכת</div>
+
+            <a href="./users/admins.html" class="nav-item">
+                <span class="nav-icon">👨‍💼</span>
+                <span>מנהלי מערכת</span>
+            </a>
+            <a href="./users/invites.html" class="nav-item active">
+                <span class="nav-icon">✉️</span>
+                <span>הזמנות הרשמה</span>
+            </a>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #999; font-weight: bold; margin-top: 10px;">ניהול קורס</div>
+
+            <a href="./course/index.php" class="nav-item">
+                <span class="nav-icon">🎓</span>
+                <span>תלמידים</span>
+            </a>
+            <a href="./course/tasks.html" class="nav-item">
+                <span class="nav-icon">📝</span>
+                <span>ספריית משימות</span>
+            </a>
+
+            <div style="border-top: 1px solid #e0e0e0; margin: 15px 0;"></div>
+
+            <a href="#" class="nav-item nav-item-danger" onclick="logout()">
+                <span class="nav-icon">🚪</span>
+                <span>התנתק</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p>גרסה 1.0</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <header class="admin-header">
+            <h1>הזמנות הרשמה למנהלים</h1>
+            <p>צור וניהל קישורי הרשמה למנהלים חדשים</p>
+        </header>
+
+        <div class="page-actions">
+            <button class="btn btn-primary" onclick="openCreateModal()">
+                <span>➕</span>
+                <span>צור הזמנה חדשה</span>
+            </button>
+            <button class="btn btn-secondary" onclick="loadInvites()">
+                <span>🔄</span>
+                <span>רענן</span>
+            </button>
+        </div>
+
+        <div id="invites-container"></div>
+    </main>
+
+    <!-- Create Invite Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>צור הזמנת הרשמה חדשה</h2>
+                <p style="color: var(--gray-600);">קישור הרשמה חד-פעמי למנהל חדש</p>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label class="input-label">תפקיד</label>
+                    <select id="invite-role" class="input-field">
+                        <option value="admin">מנהל</option>
+                        <option value="super_admin">מנהל על</option>
+                        <option value="moderator">מפקח</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">שם מלא (אופציונלי)</label>
+                    <input type="text" id="invite-name" class="input-field" placeholder="השם יהיה מוכן מראש בטופס ההרשמה">
+                </div>
+
+                <div class="input-group">
+                    <label class="input-label">זמן תפוגה (שעות)</label>
+                    <input type="number" id="invite-expiry" class="input-field" placeholder="השאר ריק ללא תפוגה" min="1" max="720">
+                    <small style="color: var(--gray-600); font-size: 0.75rem;">מומלץ: 24-48 שעות. השאר ריק אם הקישור לא צריך לפוג</small>
+                </div>
+
+                <div id="create-error" class="alert alert-error" style="display: none;"></div>
+                <div id="create-success" style="display: none;"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeCreateModal()">ביטול</button>
+                <button class="btn btn-primary" id="create-btn" onclick="createInvite()">צור הזמנה</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="utils.js"></script>
+    <script>
+        let invites = [];
+        const baseUrl = window.location.origin;
+
+        async function loadInvites() {
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'list_invites' })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    invites = data.invites;
+                    renderInvites();
+                } else {
+                    showToast(data.message || 'שגיאה בטעינת הזמנות', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading invites:', error);
+                showToast('שגיאה בטעינת הזמנות', 'error');
+            }
+        }
+
+        function renderInvites() {
+            const container = document.getElementById('invites-container');
+
+            if (invites.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✉️</div>
+                        <h3>אין הזמנות במערכת</h3>
+                        <p>צור הזמנת הרשמה חדשה כדי להוסיף מנהלים</p>
+                        <button class="btn btn-primary" onclick="openCreateModal()" style="margin-top: 1rem;">
+                            צור הזמנה ראשונה
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="invites-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>תפקיד</th>
+                                <th>שם מוגדר</th>
+                                <th>נוצר בתאריך</th>
+                                <th>פג תוקף</th>
+                                <th>סטטוס</th>
+                                <th>פעולות</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${invites.map(invite => {
+                                const status = getInviteStatus(invite);
+                                return `
+                                    <tr>
+                                        <td>
+                                            <span class="role-badge">
+                                                ${translateRole(invite.role)}
+                                            </span>
+                                        </td>
+                                        <td>${invite.preset_full_name || '-'}</td>
+                                        <td>${formatDate(invite.created_at)}</td>
+                                        <td>${invite.expires_at ? formatDate(invite.expires_at) : 'ללא תפוגה'}</td>
+                                        <td>
+                                            <span class="status-badge status-${status.class}">
+                                                ${status.text}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            ${status.class === 'active' ? `
+                                                <button class="btn-icon" onclick="copyInviteLink('${invite.token}')" title="העתק קישור">
+                                                    📋
+                                                </button>
+                                                <button class="btn-icon" onclick="showInviteLink('${invite.token}')" title="הצג קישור">
+                                                    👁️
+                                                </button>
+                                                <button class="btn-icon btn-danger" onclick="revokeInvite(${invite.id})" title="בטל">
+                                                    ❌
+                                                </button>
+                                            ` : status.class === 'used' ? `
+                                                <span style="color: var(--gray-400);">בשימוש ע"י ${invite.used_by_username || 'מנהל'}</span>
+                                            ` : `
+                                                <button class="btn-icon btn-danger" onclick="deleteInvite(${invite.id})" title="מחק">
+                                                    🗑️
+                                                </button>
+                                            `}
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function getInviteStatus(invite) {
+            if (invite.used_at) {
+                return { class: 'used', text: 'נוצל' };
+            }
+            if (!invite.is_active) {
+                return { class: 'revoked', text: 'בוטל' };
+            }
+            if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+                return { class: 'expired', text: 'פג תוקף' };
+            }
+            return { class: 'active', text: 'פעיל' };
+        }
+
+        function translateRole(role) {
+            const roles = {
+                'admin': 'מנהל',
+                'super_admin': 'מנהל על',
+                'moderator': 'מפקח'
+            };
+            return roles[role] || role;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('he-IL', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function openCreateModal() {
+            document.getElementById('invite-role').value = 'admin';
+            document.getElementById('invite-name').value = '';
+            document.getElementById('invite-expiry').value = '48';
+            document.getElementById('create-error').style.display = 'none';
+            document.getElementById('create-success').style.display = 'none';
+            document.getElementById('createModal').classList.add('show');
+        }
+
+        function closeCreateModal() {
+            document.getElementById('createModal').classList.remove('show');
+        }
+
+        async function createInvite() {
+            const role = document.getElementById('invite-role').value;
+            const fullName = document.getElementById('invite-name').value.trim();
+            const expiryHours = parseInt(document.getElementById('invite-expiry').value) || null;
+
+            const errorDiv = document.getElementById('create-error');
+            const successDiv = document.getElementById('create-success');
+            const btn = document.getElementById('create-btn');
+
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            btn.disabled = true;
+            btn.textContent = 'יוצר...';
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'create_invite',
+                        role: role,
+                        full_name: fullName,
+                        expiry_hours: expiryHours
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const inviteUrl = `${baseUrl}/admin/register.html?token=${data.token}`;
+
+                    successDiv.innerHTML = `
+                        <div class="success-box">
+                            <h3>✅ הזמנה נוצרה בהצלחה!</h3>
+                            <p>העתק את הקישור ושלח אותו למנהל החדש:</p>
+                            <div class="copy-link-box">
+                                <input type="text" class="copy-link-input" id="generated-link" value="${inviteUrl}" readonly>
+                                <button class="btn btn-primary" onclick="copyGeneratedLink()">
+                                    📋 העתק
+                                </button>
+                            </div>
+                            <p style="margin-top: 1rem; font-size: 0.875rem; color: #166534;">
+                                <strong>שים לב:</strong> קישור זה יכול לשמש פעם אחת בלבד${expiryHours ? ` ויפוג תוקפו תוך ${expiryHours} שעות` : ''}.
+                            </p>
+                        </div>
+                    `;
+                    successDiv.style.display = 'block';
+
+                    loadInvites();
+                } else {
+                    errorDiv.textContent = data.message || 'שגיאה ביצירת ההזמנה';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error creating invite:', error);
+                errorDiv.textContent = 'שגיאה ביצירת ההזמנה';
+                errorDiv.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'צור הזמנה';
+            }
+        }
+
+        function copyGeneratedLink() {
+            const input = document.getElementById('generated-link');
+            input.select();
+            document.execCommand('copy');
+            showToast('הקישור הועתק ללוח', 'success');
+        }
+
+        function copyInviteLink(token) {
+            const inviteUrl = `${baseUrl}/admin/register.html?token=${token}`;
+            navigator.clipboard.writeText(inviteUrl).then(() => {
+                showToast('הקישור הועתק ללוח', 'success');
+            }).catch(err => {
+                console.error('Copy error:', err);
+                showToast('שגיאה בהעתקת הקישור', 'error');
+            });
+        }
+
+        function showInviteLink(token) {
+            const inviteUrl = `${baseUrl}/admin/register.html?token=${token}`;
+            alert(`קישור ההזמנה:\n\n${inviteUrl}\n\nהקש CTRL+C להעתקה`);
+        }
+
+        async function revokeInvite(inviteId) {
+            if (!confirm('האם אתה בטוח שברצונך לבטל הזמנה זו?\n\nהקישור לא יהיה תקף יותר.')) return;
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'revoke_invite',
+                        invite_id: inviteId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || 'ההזמנה בוטלה בהצלחה', 'success');
+                    loadInvites();
+                } else {
+                    showToast(data.message || 'שגיאה בביטול ההזמנה', 'error');
+                }
+            } catch (error) {
+                console.error('Error revoking invite:', error);
+                showToast('שגיאה בביטול ההזמנה', 'error');
+            }
+        }
+
+        async function deleteInvite(inviteId) {
+            if (!confirm('האם אתה בטוח שברצונך למחוק הזמנה זו?')) return;
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'delete_invite',
+                        invite_id: inviteId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || 'ההזמנה נמחקה בהצלחה', 'success');
+                    loadInvites();
+                } else {
+                    showToast(data.message || 'שגיאה במחיקת ההזמנה', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting invite:', error);
+                showToast('שגיאה במחיקת ההזמנה', 'error');
+            }
+        }
+
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        }
+
+        async function logout() {
+            if (!confirm('האם אתה בטוח שברצונך להתנתק?')) return;
+
+            try {
+                await fetch('auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'logout' })
+                });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+
+            window.location.href = 'index.html';
+        }
+
+        // Load invites on page load
+        loadInvites();
+
+        // Load admin name in sidebar
+        const adminName = sessionStorage.getItem('admin_name') || 'מנהל';
+        document.getElementById('admin-name').textContent = adminName;
+    </script>
+</body>
+</html>

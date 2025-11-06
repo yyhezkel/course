@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול מנהלים - מערכת ניהול</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="admin.css">
+    <style>
+        .page-actions {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .admins-table {
+            width: 100%;
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .admins-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .admins-table th {
+            background: var(--gray-50);
+            padding: 1rem;
+            text-align: right;
+            font-weight: 600;
+            color: var(--gray-700);
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .admins-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .admins-table tr:hover {
+            background: var(--gray-50);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--blue-100);
+            color: var(--blue-800);
+        }
+
+        .role-super_admin {
+            background: var(--purple-100);
+            color: var(--purple-800);
+        }
+
+        .actions-cell {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-icon {
+            padding: 0.5rem;
+            border: none;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+            background: transparent;
+        }
+
+        .btn-icon:hover {
+            background: var(--gray-100);
+            transform: scale(1.1);
+        }
+
+        .btn-icon.btn-danger:hover {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            margin: 0 0 0.5rem 0;
+            color: var(--gray-900);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--gray-500);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="admin-body">
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileMenu()">☰</button>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileMenu()"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">👨‍💼</div>
+            <h2>פאנל ניהול</h2>
+            <p class="admin-name" id="admin-name">טוען...</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="./dashboard.html" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>לוח בקרה</span>
+            </a>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #999; font-weight: bold; margin-top: 10px;">ניהול מערכת</div>
+
+            <a href="./users/admins.html" class="nav-item active">
+                <span class="nav-icon">👨‍💼</span>
+                <span>מנהלי מערכת</span>
+            </a>
+            <a href="./users/invites.html" class="nav-item">
+                <span class="nav-icon">✉️</span>
+                <span>הזמנות הרשמה</span>
+            </a>
+
+            <div style="padding: 10px 15px; font-size: 12px; color: #999; font-weight: bold; margin-top: 10px;">ניהול קורס</div>
+
+            <a href="./course/index.php" class="nav-item">
+                <span class="nav-icon">🎓</span>
+                <span>תלמידים</span>
+            </a>
+            <a href="./course/tasks.html" class="nav-item">
+                <span class="nav-icon">📝</span>
+                <span>ספריית משימות</span>
+            </a>
+
+            <div style="border-top: 1px solid #e0e0e0; margin: 15px 0;"></div>
+
+            <a href="#" class="nav-item nav-item-danger" onclick="logout()">
+                <span class="nav-icon">🚪</span>
+                <span>התנתק</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p>גרסה 1.0</p>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <header class="admin-header">
+            <h1>ניהול מנהלי מערכת</h1>
+            <p>צפייה וניהול חשבונות מנהלים</p>
+        </header>
+
+        <div class="page-actions">
+            <a href="./invites.html" class="btn btn-primary">
+                <span>✉️</span>
+                <span>צור הזמנת הרשמה</span>
+            </a>
+            <button class="btn btn-secondary" onclick="loadAdmins()">
+                <span>🔄</span>
+                <span>רענן</span>
+            </button>
+        </div>
+
+        <div id="admins-container"></div>
+    </main>
+
+    <!-- Change Password Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>שינוי סיסמה</h2>
+                <p id="password-modal-username" style="color: var(--gray-600);"></p>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label class="input-label">סיסמה חדשה</label>
+                    <input type="password" id="new-password" class="input-field" placeholder="לפחות 12 תווים">
+                </div>
+                <div class="input-group">
+                    <label class="input-label">אימות סיסמה</label>
+                    <input type="password" id="confirm-password" class="input-field" placeholder="הזן את הסיסמה שוב">
+                </div>
+                <div id="password-error" class="alert alert-error" style="display: none;"></div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closePasswordModal()">ביטול</button>
+                <button class="btn btn-primary" onclick="submitPasswordChange()">שמור סיסמה</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="utils.js"></script>
+    <script>
+        let admins = [];
+        let selectedAdminId = null;
+
+        async function loadAdmins() {
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'list_admins' })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    admins = data.admins;
+                    renderAdmins();
+                } else {
+                    showToast(data.message || 'שגיאה בטעינת מנהלים', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading admins:', error);
+                showToast('שגיאה בטעינת מנהלים', 'error');
+            }
+        }
+
+        function renderAdmins() {
+            const container = document.getElementById('admins-container');
+
+            if (admins.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👨‍💼</div>
+                        <h3>אין מנהלים במערכת</h3>
+                        <p>צור הזמנת הרשמה כדי להוסיף מנהלים חדשים</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const currentAdminId = parseInt(sessionStorage.getItem('admin_id'));
+
+            container.innerHTML = `
+                <div class="admins-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>שם משתמש</th>
+                                <th>שם מלא</th>
+                                <th>דוא"ל</th>
+                                <th>תפקיד</th>
+                                <th>סטטוס</th>
+                                <th>התחברות אחרונה</th>
+                                <th>פעולות</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${admins.map(admin => `
+                                <tr>
+                                    <td><strong>${admin.username}</strong></td>
+                                    <td>${admin.full_name || '-'}</td>
+                                    <td>${admin.email}</td>
+                                    <td>
+                                        <span class="role-badge ${admin.role === 'super_admin' ? 'role-super_admin' : ''}">
+                                            ${translateRole(admin.role)}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="status-badge ${admin.is_active ? 'status-active' : 'status-inactive'}">
+                                            ${admin.is_active ? 'פעיל' : 'לא פעיל'}
+                                        </span>
+                                    </td>
+                                    <td>${admin.last_login ? formatDate(admin.last_login) : 'מעולם לא'}</td>
+                                    <td>
+                                        <div class="actions-cell">
+                                            ${admin.id !== currentAdminId ? `
+                                                <button class="btn-icon" onclick="toggleAdminStatus(${admin.id}, ${admin.is_active})" title="${admin.is_active ? 'השבת' : 'הפעל'}">
+                                                    ${admin.is_active ? '🔒' : '🔓'}
+                                                </button>
+                                            ` : ''}
+                                            <button class="btn-icon" onclick="openPasswordModal(${admin.id}, '${admin.username}')" title="שנה סיסמה">
+                                                🔑
+                                            </button>
+                                            ${admin.id !== currentAdminId ? `
+                                                <button class="btn-icon btn-danger" onclick="deleteAdmin(${admin.id}, '${admin.username}')" title="מחק">
+                                                    🗑️
+                                                </button>
+                                            ` : '<span style="color: var(--gray-400);" title="לא ניתן למחוק את עצמך">🗑️</span>'}
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function translateRole(role) {
+            const roles = {
+                'admin': 'מנהל',
+                'super_admin': 'מנהל על',
+                'moderator': 'מפקח'
+            };
+            return roles[role] || role;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('he-IL', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        async function toggleAdminStatus(adminId, currentStatus) {
+            const action = currentStatus ? 'השבת' : 'הפעל';
+            if (!confirm(`האם אתה בטוח שברצונך ל${action} משתמש זה?`)) return;
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'toggle_admin_status',
+                        admin_id: adminId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || 'הסטטוס עודכן בהצלחה', 'success');
+                    loadAdmins();
+                } else {
+                    showToast(data.message || 'שגיאה בעדכון הסטטוס', 'error');
+                }
+            } catch (error) {
+                console.error('Error toggling status:', error);
+                showToast('שגיאה בעדכון הסטטוס', 'error');
+            }
+        }
+
+        async function deleteAdmin(adminId, username) {
+            if (!confirm(`האם אתה בטוח שברצונך למחוק את המנהל "${username}"?\n\nפעולה זו אינה הפיכה!`)) return;
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'delete_admin',
+                        admin_id: adminId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || 'המנהל נמחק בהצלחה', 'success');
+                    loadAdmins();
+                } else {
+                    showToast(data.message || 'שגיאה במחיקת המנהל', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting admin:', error);
+                showToast('שגיאה במחיקת המנהל', 'error');
+            }
+        }
+
+        function openPasswordModal(adminId, username) {
+            selectedAdminId = adminId;
+            document.getElementById('password-modal-username').textContent = `משתמש: ${username}`;
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+            document.getElementById('password-error').style.display = 'none';
+            document.getElementById('passwordModal').classList.add('show');
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.remove('show');
+            selectedAdminId = null;
+        }
+
+        async function submitPasswordChange() {
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const errorDiv = document.getElementById('password-error');
+
+            errorDiv.style.display = 'none';
+
+            if (!newPassword || !confirmPassword) {
+                errorDiv.textContent = 'אנא מלא את כל השדות';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                errorDiv.textContent = 'הסיסמאות אינן תואמות';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (newPassword.length < 12) {
+                errorDiv.textContent = 'הסיסמה חייבת להיות לפחות 12 תווים';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'change_admin_password',
+                        admin_id: selectedAdminId,
+                        new_password: newPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(data.message || 'הסיסמה שונתה בהצלחה', 'success');
+                    closePasswordModal();
+                } else {
+                    errorDiv.textContent = data.message || 'שגיאה בשינוי הסיסמה';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                errorDiv.textContent = 'שגיאה בשינוי הסיסמה';
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        }
+
+        async function logout() {
+            if (!confirm('האם אתה בטוח שברצונך להתנתק?')) return;
+
+            try {
+                await fetch('auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'logout' })
+                });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+
+            window.location.href = 'index.html';
+        }
+
+        // Load admins on page load
+        loadAdmins();
+
+        // Load admin name in sidebar
+        const adminName = sessionStorage.getItem('admin_name') || 'מנהל';
+        document.getElementById('admin-name').textContent = adminName;
+    </script>
+</body>
+</html>
