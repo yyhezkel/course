@@ -2,11 +2,13 @@
 /**
  * Admin Authentication System
  * Handles admin login, logout, and session management
+ * Enhanced with CSRF protection, brute force protection, and strong password policies
  */
 
 session_start();
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/security_helpers.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: ' . getAdminOrigin());
@@ -21,6 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $input = json_decode(file_get_contents('php://input'), true);
 $action = $input['action'] ?? $_GET['action'] ?? '';
 $db = getDbConnection();
+
+// Clean up old failed login attempts periodically (1% chance per request)
+if (rand(1, 100) === 1) {
+    cleanupOldFailedAttempts($db);
+}
 
 // ============================================
 // Helper Functions
@@ -63,12 +70,34 @@ function logActivity($db, $adminUserId, $action, $entityType, $entityId = null, 
 }
 
 // ============================================
+// GET CSRF TOKEN
+// ============================================
+
+if ($action === 'get_csrf_token') {
+    echo json_encode([
+        'success' => true,
+        'csrf_token' => getCsrfToken()
+    ]);
+    exit;
+}
+
+// ============================================
 // LOGIN
 // ============================================
 
 if ($action === 'login') {
     $username = $input['username'] ?? '';
     $password = $input['password'] ?? '';
+    $csrfToken = $input['csrf_token'] ?? '';
+    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+
+    // Validate CSRF token
+    if (!validateCsrfToken($csrfToken)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'אסימון אבטחה לא חוקי. נא לרענן את הדף ולנסות שוב']);
+        logSecurityEvent($db, 'csrf_validation_failed', $username, "IP: $ipAddress");
+        exit;
+    }
 
     if (empty($username) || empty($password)) {
         http_response_code(400);
@@ -76,12 +105,37 @@ if ($action === 'login') {
         exit;
     }
 
+    // Check brute force protection
+    $bruteForceCheck = checkBruteForceProtection($db, $username, $ipAddress);
+
+    if ($bruteForceCheck['locked']) {
+        http_response_code(429);
+        logSecurityEvent($db, 'account_locked', $username, "Too many failed attempts from IP: $ipAddress");
+        echo json_encode([
+            'success' => false,
+            'message' => 'החשבון נחסם זמנית עקב ניסיונות התחברות כושלים מרובים. נסה שוב בעוד 30 דקות או צור קשר עם מנהל המערכת.',
+            'locked' => true,
+            'attempts' => $bruteForceCheck['attempts']
+        ]);
+        exit;
+    }
+
+    // Apply progressive delay if there are failed attempts
+    if ($bruteForceCheck['delay'] > 0) {
+        applyLoginDelay($bruteForceCheck['delay']);
+    }
+
     // Get admin user
-    $stmt = $db->prepare("SELECT * FROM admin_users WHERE username = ? AND is_active = 1");
+    $stmt = $db->prepare("SELECT * FROM admin_users WHERE username = ?");
     $stmt->execute([$username]);
     $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$admin) {
+    // Check if user exists and is active
+    if (!$admin || $admin['is_active'] != 1) {
+        // Track failed attempt
+        trackFailedLogin($db, $username, $ipAddress);
+        logSecurityEvent($db, 'failed_login_attempt', $username, "User not found or inactive. IP: $ipAddress");
+
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'שם משתמש או סיסמה שגויים']);
         exit;
@@ -89,10 +143,27 @@ if ($action === 'login') {
 
     // Verify password
     if (!password_verify($password, $admin['password_hash'])) {
+        // Track failed attempt
+        trackFailedLogin($db, $username, $ipAddress);
+        logSecurityEvent($db, 'failed_login_attempt', $username, "Invalid password. IP: $ipAddress");
+
+        // Check if account should be locked after this failed attempt
+        $newAttempts = getFailedLoginAttempts($db, $username, $ipAddress, 30);
+        if ($newAttempts >= 5) {
+            lockAdminAccount($db, $username);
+            logSecurityEvent($db, 'account_auto_locked', $username, "Account locked after $newAttempts failed attempts");
+        }
+
         http_response_code(401);
         echo json_encode(['success' => false, 'message' => 'שם משתמש או סיסמה שגויים']);
         exit;
     }
+
+    // Successful login - clear failed attempts
+    clearFailedLoginAttempts($db, $username, $ipAddress);
+
+    // Regenerate session ID to prevent session fixation
+    session_regenerate_id(true);
 
     // Create session
     $_SESSION['admin_authenticated'] = true;
@@ -108,6 +179,7 @@ if ($action === 'login') {
 
     // Log activity
     logActivity($db, $admin['id'], 'login', 'admin_user', $admin['id']);
+    logSecurityEvent($db, 'successful_login', $username, "IP: $ipAddress");
 
     echo json_encode([
         'success' => true,
@@ -176,6 +248,14 @@ if ($action === 'change_password') {
 
     $currentPassword = $input['current_password'] ?? '';
     $newPassword = $input['new_password'] ?? '';
+    $csrfToken = $input['csrf_token'] ?? '';
+
+    // Validate CSRF token
+    if (!validateCsrfToken($csrfToken)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'אסימון אבטחה לא חוקי. נא לרענן את הדף ולנסות שוב']);
+        exit;
+    }
 
     if (empty($currentPassword) || empty($newPassword)) {
         http_response_code(400);
@@ -183,20 +263,26 @@ if ($action === 'change_password') {
         exit;
     }
 
-    if (strlen($newPassword) < 6) {
+    // Validate password strength
+    $passwordValidation = validatePasswordStrength($newPassword);
+    if (!$passwordValidation['valid']) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'סיסמה חדשה חייבת להיות לפחות 6 תווים']);
+        echo json_encode([
+            'success' => false,
+            'message' => $passwordValidation['message']
+        ]);
         exit;
     }
 
     // Get current admin
-    $stmt = $db->prepare("SELECT password_hash FROM admin_users WHERE id = ?");
+    $stmt = $db->prepare("SELECT username, password_hash FROM admin_users WHERE id = ?");
     $stmt->execute([$_SESSION['admin_user_id']]);
     $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // Verify current password
     if (!password_verify($currentPassword, $admin['password_hash'])) {
         http_response_code(400);
+        logSecurityEvent($db, 'password_change_failed', $admin['username'], 'Invalid current password');
         echo json_encode(['success' => false, 'message' => 'סיסמה נוכחית שגויה']);
         exit;
     }
@@ -208,6 +294,7 @@ if ($action === 'change_password') {
 
     // Log activity
     logActivity($db, $_SESSION['admin_user_id'], 'change_password', 'admin_user', $_SESSION['admin_user_id']);
+    logSecurityEvent($db, 'password_changed', $admin['username'], 'Password changed successfully');
 
     echo json_encode(['success' => true, 'message' => 'סיסמה שונתה בהצלחה']);
     exit;

@@ -14,6 +14,7 @@
  */
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/security_helpers.php';
 
 // Colors for terminal output
 class Color {
@@ -117,9 +118,18 @@ switch ($command) {
             exit(1);
         }
 
-        // Validate password
-        if (strlen($password) < 6) {
-            print_error("Password must be at least 6 characters");
+        // Validate password strength
+        $passwordValidation = validatePasswordStrength($password);
+        if (!$passwordValidation['valid']) {
+            print_error("Password validation failed:");
+            print_error($passwordValidation['message']);
+            echo "\n" . Color::CYAN . "Password Requirements:" . Color::RESET . "\n";
+            echo "  • Minimum 12 characters\n";
+            echo "  • At least one uppercase letter (A-Z)\n";
+            echo "  • At least one lowercase letter (a-z)\n";
+            echo "  • At least one number (0-9)\n";
+            echo "  • At least one special character (!@#\$%^&* etc.)\n";
+            echo "  • Must not be a common password\n";
             exit(1);
         }
 
@@ -178,9 +188,18 @@ switch ($command) {
 
         print_header("Changing Password");
 
-        // Validate password
-        if (strlen($newPassword) < 6) {
-            print_error("Password must be at least 6 characters");
+        // Validate password strength
+        $passwordValidation = validatePasswordStrength($newPassword);
+        if (!$passwordValidation['valid']) {
+            print_error("Password validation failed:");
+            print_error($passwordValidation['message']);
+            echo "\n" . Color::CYAN . "Password Requirements:" . Color::RESET . "\n";
+            echo "  • Minimum 12 characters\n";
+            echo "  • At least one uppercase letter (A-Z)\n";
+            echo "  • At least one lowercase letter (a-z)\n";
+            echo "  • At least one number (0-9)\n";
+            echo "  • At least one special character (!@#\$%^&* etc.)\n";
+            echo "  • Must not be a common password\n";
             exit(1);
         }
 
@@ -386,7 +405,13 @@ switch ($command) {
 
         echo Color::BOLD . "Notes:" . Color::RESET . "\n";
         echo "  - Username must be at least 3 characters\n";
-        echo "  - Password must be at least 6 characters\n";
+        echo "  - Password Requirements:\n";
+        echo "    • Minimum 12 characters\n";
+        echo "    • At least one uppercase letter (A-Z)\n";
+        echo "    • At least one lowercase letter (a-z)\n";
+        echo "    • At least one number (0-9)\n";
+        echo "    • At least one special character (!@#\$%^&* etc.)\n";
+        echo "    • Must not be a common password\n";
         echo "  - Default role is 'admin'\n";
         echo "  - Cannot delete the last active admin\n\n";
         break;

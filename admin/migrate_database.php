@@ -300,9 +300,31 @@ try {
     logStep("Created indexes on activity_log table");
 
     // ============================================
-    // STEP 10: Create default form
+    // STEP 10: Create failed_login_attempts table
     // ============================================
-    echo "\n--- Step 10: Creating default form ---\n";
+    echo "\n--- Step 10: Creating failed_login_attempts table ---\n";
+
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS failed_login_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            ip_address TEXT NOT NULL,
+            attempt_time TEXT DEFAULT CURRENT_TIMESTAMP,
+            user_agent TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ");
+    logStep("Created failed_login_attempts table");
+
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_failed_login_username ON failed_login_attempts(username)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_failed_login_ip ON failed_login_attempts(ip_address)");
+    $db->exec("CREATE INDEX IF NOT EXISTS idx_failed_login_time ON failed_login_attempts(attempt_time)");
+    logStep("Created indexes on failed_login_attempts table");
+
+    // ============================================
+    // STEP 11: Create default form
+    // ============================================
+    echo "\n--- Step 11: Creating default form ---\n";
 
     // Check if a form already exists
     $formCount = $db->query("SELECT COUNT(*) FROM forms")->fetchColumn();
