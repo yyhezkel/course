@@ -157,7 +157,7 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('profileContent').style.display = 'block';
 
-            // Profile header
+            // Profile header - prefer full_name, fallback to tz
             const displayName = userData.full_name || userData.tz || 'משתמש';
 
             // Display profile photo or initials

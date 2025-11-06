@@ -267,9 +267,15 @@
             document.getElementById('userContent').style.display = 'block';
 
             // User header
-            const initials = userData.tz ? userData.tz.substring(0, 2) : '??';
+            let initials = '??';
+            if (userData.full_name) {
+                const names = userData.full_name.split(' ');
+                initials = names.map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase();
+            } else if (userData.tz) {
+                initials = userData.tz.substring(0, 2);
+            }
             document.getElementById('userAvatar').textContent = initials;
-            document.getElementById('userName').textContent = userData.tz || 'תלמיד';
+            document.getElementById('userName').textContent = userData.full_name || userData.tz || 'תלמיד';
             document.getElementById('userTz').textContent = `ת.ז.: ${userData.tz}`;
             if (userData.last_login) {
                 const lastLogin = new Date(userData.last_login).toLocaleDateString('he-IL');

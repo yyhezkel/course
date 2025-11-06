@@ -485,7 +485,7 @@
                 // User cell
                 const userCell = document.createElement('td');
                 userCell.className = 'user-cell';
-                userCell.textContent = user.tz || user.full_name || `User ${user.id}`;
+                userCell.textContent = user.full_name || user.tz || `User ${user.id}`;
                 row.appendChild(userCell);
 
                 // Answer cells
@@ -532,7 +532,7 @@
 
             data.users.forEach(user => {
                 const th = document.createElement('th');
-                th.textContent = user.tz || user.full_name || `User ${user.id}`;
+                th.textContent = user.full_name || user.tz || `User ${user.id}`;
                 headerRow.appendChild(th);
             });
             thead.appendChild(headerRow);
@@ -616,7 +616,7 @@
 
                 // Rows
                 currentData.users.forEach(user => {
-                    const userName = user.tz || user.full_name || `User ${user.id}`;
+                    const userName = user.full_name || user.tz || `User ${user.id}`;
                     const row = [userName];
 
                     currentData.questions.forEach(question => {
@@ -641,7 +641,7 @@
                 });
             } else {
                 // Questions × Users view
-                csv = 'שאלה,' + currentData.users.map(u => `"${u.tz || u.full_name || 'User ' + u.id}"`).join(',') + '\n';
+                csv = 'שאלה,' + currentData.users.map(u => `"${u.full_name || u.tz || 'User ' + u.id}"`).join(',') + '\n';
 
                 currentData.questions.forEach(question => {
                     const row = [`"${question.question_text}"`];
