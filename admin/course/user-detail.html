@@ -93,8 +93,9 @@
                             </div>
                         </div>
                     </div>
-                    <div>
+                    <div style="display: flex; gap: 10px;">
                         <button class="btn btn-white" onclick="assignNewTask()">הוספת משימה חדשה</button>
+                        <button class="btn" style="background: #f59e0b;" onclick="generatePasswordResetLink()">🔑 איפוס סיסמה</button>
                     </div>
                 </div>
             </div>
@@ -135,6 +136,19 @@
                 </h2>
                 <div id="tasksList"></div>
             </div>
+
+            <!-- Activity Log Section -->
+            <div class="tasks-section" style="margin-top: 30px;">
+                <h2>
+                    <span>📊 היסטוריית פעילות</span>
+                    <button class="btn btn-white" onclick="loadActivityLog()">🔄 רענן</button>
+                </h2>
+                <div id="activityLogList">
+                    <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                        <p>טוען היסטוריית פעילות...</p>
+                    </div>
+                </div>
+            </div>
         </div>
         </div>
     </div>
@@ -145,6 +159,17 @@
             <button onclick="closeTaskPreview()" style="position: absolute; left: 20px; top: 20px; background: #ef4444; color: white; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer;">✕ סגור</button>
 
             <div id="taskPreviewContent"></div>
+        </div>
+    </div>
+
+    <!-- Password Reset Modal -->
+    <div id="passwordResetModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="max-width: 600px; width: 90%; background: white; border-radius: 12px; padding: 30px; position: relative;">
+            <button onclick="closePasswordResetModal()" style="position: absolute; left: 20px; top: 20px; background: #ef4444; color: white; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer;">✕ סגור</button>
+
+            <h2 style="margin-top: 0; margin-bottom: 20px; color: #1f2937;">🔑 קישור איפוס סיסמה</h2>
+
+            <div id="resetLinkContent"></div>
         </div>
     </div>
 
@@ -259,6 +284,7 @@
                     userData = data.user;
                     userTasks = data.tasks;
                     renderUserDetail();
+                    loadActivityLog(); // Load activity log after user data is loaded
                 } else {
                     throw new Error(data.message || 'Failed to load user data');
                 }
@@ -709,6 +735,327 @@
                 'returned': 'הוחזרה לתלמיד'
             };
             return statusMap[status] || status;
+        }
+
+        // Activity Log Functions
+        async function loadActivityLog() {
+            const logList = document.getElementById('activityLogList');
+            logList.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                    <div style="border: 4px solid #f3f4f6; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+                    <p>טוען היסטוריית פעילות...</p>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'get_user_activity_log',
+                        user_id: userId,
+                        limit: 50
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    renderActivityLog(data.activity_log);
+                } else {
+                    logList.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #ef4444;">
+                            <p>שגיאה בטעינת היסטוריית פעילות</p>
+                            <p style="font-size: 14px; margin-top: 10px;">${data.message}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading activity log:', error);
+                logList.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #ef4444;">
+                        <p>שגיאה בטעינת היסטוריית פעילות</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderActivityLog(activities) {
+            const logList = document.getElementById('activityLogList');
+
+            if (!activities || activities.length === 0) {
+                logList.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                        <p>אין רשומות פעילות עדיין</p>
+                    </div>
+                `;
+                return;
+            }
+
+            logList.innerHTML = activities.map(activity => {
+                const date = new Date(activity.created_at).toLocaleString('he-IL');
+                const adminName = activity.admin_name || activity.admin_username || 'מערכת';
+
+                // Format action text
+                let actionText = '';
+                let actionIcon = '📝';
+                let actionColor = '#6b7280';
+
+                switch (activity.action) {
+                    case 'create':
+                    case 'created':
+                        actionText = 'נוצר';
+                        actionIcon = '➕';
+                        actionColor = '#059669';
+                        break;
+                    case 'update':
+                    case 'updated':
+                        actionText = 'עודכן';
+                        actionIcon = '✏️';
+                        actionColor = '#2563eb';
+                        break;
+                    case 'delete':
+                    case 'deleted':
+                        actionText = 'נמחק';
+                        actionIcon = '🗑️';
+                        actionColor = '#dc2626';
+                        break;
+                    case 'archive':
+                    case 'archived':
+                        actionText = 'הועבר לארכיון';
+                        actionIcon = '📦';
+                        actionColor = '#f59e0b';
+                        break;
+                    case 'activate':
+                    case 'activated':
+                        actionText = 'הופעל';
+                        actionIcon = '✅';
+                        actionColor = '#059669';
+                        break;
+                    case 'deactivate':
+                    case 'deactivated':
+                        actionText = 'הושבת';
+                        actionIcon = '🚫';
+                        actionColor = '#dc2626';
+                        break;
+                    case 'password_reset_token_created':
+                        actionText = 'נוצר קישור איפוס סיסמה';
+                        actionIcon = '🔑';
+                        actionColor = '#f59e0b';
+                        break;
+                    case 'task_assigned':
+                        actionText = 'הוקצתה משימה';
+                        actionIcon = '📋';
+                        actionColor = '#2563eb';
+                        break;
+                    case 'task_reviewed':
+                        actionText = 'נבדקה משימה';
+                        actionIcon = '✓';
+                        actionColor = '#059669';
+                        break;
+                    case 'login':
+                        actionText = 'התחבר למערכת';
+                        actionIcon = '🔓';
+                        actionColor = '#059669';
+                        break;
+                    default:
+                        actionText = activity.action;
+                        actionIcon = '📝';
+                        actionColor = '#6b7280';
+                }
+
+                // Format entity type
+                let entityText = '';
+                switch (activity.entity_type) {
+                    case 'user':
+                        entityText = 'משתמש';
+                        break;
+                    case 'user_task':
+                        entityText = 'משימה';
+                        break;
+                    case 'form':
+                        entityText = 'טופס';
+                        break;
+                    case 'form_response':
+                        entityText = 'תשובה לטופס';
+                        break;
+                    default:
+                        entityText = activity.entity_type;
+                }
+
+                return `
+                    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: start; gap: 12px;">
+                            <div style="font-size: 24px; flex-shrink: 0;">${actionIcon}</div>
+                            <div style="flex: 1;">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                                    <div>
+                                        <span style="font-weight: 600; color: ${actionColor};">${actionText}</span>
+                                        <span style="color: #6b7280; margin: 0 6px;">•</span>
+                                        <span style="color: #6b7280;">${entityText}</span>
+                                    </div>
+                                    <span style="color: #9ca3af; font-size: 13px; white-space: nowrap;">${date}</span>
+                                </div>
+                                <div style="color: #6b7280; font-size: 14px;">
+                                    <span>על ידי: <strong>${adminName}</strong></span>
+                                    ${activity.ip_address ? `<span style="margin-right: 15px;">IP: ${activity.ip_address}</span>` : ''}
+                                </div>
+                                ${activity.old_value || activity.new_value ? `
+                                    <div style="margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 6px; font-size: 13px;">
+                                        ${activity.old_value ? `<div style="color: #dc2626; margin-bottom: 4px;"><strong>ערך קודם:</strong> ${activity.old_value}</div>` : ''}
+                                        ${activity.new_value ? `<div style="color: #059669;"><strong>ערך חדש:</strong> ${activity.new_value}</div>` : ''}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Password Reset Functions
+        async function generatePasswordResetLink() {
+            if (!confirm('האם אתה בטוח שברצונך ליצור קישור איפוס סיסמה לתלמיד זה?')) {
+                return;
+            }
+
+            const modal = document.getElementById('passwordResetModal');
+            const content = document.getElementById('resetLinkContent');
+
+            content.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <div style="border: 4px solid #f3f4f6; border-top: 4px solid #667eea; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
+                    <p>יוצר קישור איפוס סיסמה...</p>
+                </div>
+            `;
+            modal.style.display = 'flex';
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'create_password_reset_token',
+                        user_id: userId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const resetLink = window.location.origin + '/reset-password.html?token=' + data.token;
+                    const expiresAt = new Date(data.expires_at).toLocaleString('he-IL');
+
+                    content.innerHTML = `
+                        <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-right: 4px solid #059669;">
+                            <p style="color: #065f46; font-weight: 500; margin-bottom: 10px;">✅ קישור איפוס סיסמה נוצר בהצלחה!</p>
+                            <p style="color: #047857; font-size: 13px;">הקישור תקף עד: ${expiresAt}</p>
+                        </div>
+
+                        <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <label style="display: block; font-size: 12px; color: #6b7280; margin-bottom: 8px; font-weight: 500;">קישור איפוס סיסמה:</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input
+                                    type="text"
+                                    id="resetLinkInput"
+                                    value="${resetLink}"
+                                    readonly
+                                    style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; font-family: monospace; background: white;"
+                                >
+                                <button
+                                    onclick="copyResetLink()"
+                                    style="background: #2563eb; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 500; white-space: nowrap;"
+                                >
+                                    📋 העתק
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="background: #fef3c7; padding: 12px; border-radius: 6px; border-right: 3px solid #f59e0b; margin-bottom: 15px;">
+                            <p style="color: #92400e; font-size: 13px; margin: 0;">
+                                <strong>שים לב:</strong> שלח קישור זה לתלמיד באמצעים מאובטחים בלבד (WhatsApp, אימייל וכו').
+                                הקישור תקף ל-24 שעות בלבד וניתן לשימוש חד-פעמי.
+                            </p>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button
+                                onclick="openWhatsApp('${resetLink}')"
+                                style="background: #25D366; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 500;"
+                            >
+                                📱 שלח ב-WhatsApp
+                            </button>
+                            <button
+                                onclick="closePasswordResetModal()"
+                                style="background: #6b7280; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 500;"
+                            >
+                                סגור
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = `
+                        <div style="background: #fef2f2; padding: 15px; border-radius: 8px; border-right: 4px solid #dc2626; margin-bottom: 20px;">
+                            <p style="color: #991b1b; font-weight: 500;">❌ שגיאה ביצירת קישור איפוס</p>
+                            <p style="color: #dc2626; font-size: 13px; margin-top: 8px;">${data.message}</p>
+                        </div>
+                        <button
+                            onclick="closePasswordResetModal()"
+                            style="background: #6b7280; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 500; width: 100%;"
+                        >
+                            סגור
+                        </button>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error generating reset link:', error);
+                content.innerHTML = `
+                    <div style="background: #fef2f2; padding: 15px; border-radius: 8px; border-right: 4px solid #dc2626; margin-bottom: 20px;">
+                        <p style="color: #991b1b; font-weight: 500;">❌ שגיאה ביצירת קישור איפוס</p>
+                        <p style="color: #dc2626; font-size: 13px; margin-top: 8px;">אירעה שגיאה בתקשורת עם השרת</p>
+                    </div>
+                    <button
+                        onclick="closePasswordResetModal()"
+                        style="background: #6b7280; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 500; width: 100%;"
+                    >
+                        סגור
+                    </button>
+                `;
+            }
+        }
+
+        function closePasswordResetModal() {
+            document.getElementById('passwordResetModal').style.display = 'none';
+        }
+
+        function copyResetLink() {
+            const input = document.getElementById('resetLinkInput');
+            input.select();
+            input.setSelectionRange(0, 99999); // For mobile devices
+
+            try {
+                navigator.clipboard.writeText(input.value);
+                if (typeof showToast === 'function') {
+                    showToast('הקישור הועתק ללוח!', 'success');
+                } else {
+                    alert('הקישור הועתק ללוח!');
+                }
+            } catch (err) {
+                // Fallback for older browsers
+                document.execCommand('copy');
+                if (typeof showToast === 'function') {
+                    showToast('הקישור הועתק ללוח!', 'success');
+                } else {
+                    alert('הקישור הועתק ללוח!');
+                }
+            }
+        }
+
+        function openWhatsApp(resetLink) {
+            const message = encodeURIComponent(`שלום,\n\nנוצר עבורך קישור לאיפוס סיסמה:\n${resetLink}\n\nהקישור תקף ל-24 שעות בלבד.\n\nבברכה,\nצוות הניהול`);
+            window.open(`https://wa.me/?text=${message}`, '_blank');
         }
     </script>
 </body>
