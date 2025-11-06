@@ -2298,16 +2298,9 @@ textarea.form-control {
     }
 }
 
-/* User Card Checkbox */
+/* User Card Checkbox - removed position absolute to allow grid layout */
 .user-card-checkbox {
-    position: absolute;
-    top: 15px;
-    left: 15px;
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
-    accent-color: var(--primary-color);
-    z-index: 2;
+    /* Styles are now applied inline in JavaScript for proper grid layout */
 }
 
 .user-card {
