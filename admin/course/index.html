@@ -392,9 +392,9 @@
                 // Status filter
                 let matchesFilter = true;
                 if (currentFilter === 'active') {
-                    matchesFilter = !user.is_blocked;
+                    matchesFilter = user.is_blocked == 0;
                 } else if (currentFilter === 'inactive') {
-                    matchesFilter = user.is_blocked;
+                    matchesFilter = user.is_blocked == 1;
                 } else if (currentFilter === 'archived') {
                     // Archived users are already filtered by API, just show all
                     matchesFilter = true;
@@ -473,7 +473,7 @@
                     : 0;
 
                 const initials = user.tz ? user.tz.substring(0, 2) : '??';
-                const isActive = !user.is_blocked;
+                const isActive = user.is_blocked == 0;
                 const statusBadge = isActive ? 'active' : 'inactive';
                 const statusText = isActive ? 'פעיל' : 'לא פעיל';
                 const displayName = user.full_name || user.tz;
@@ -576,7 +576,7 @@
                     ? Math.round((user.completed_tasks / user.total_tasks) * 100)
                     : 0;
 
-                const isActive = !user.is_blocked;
+                const isActive = user.is_blocked == 0;
                 const statusBadge = isActive ? 'active' : 'inactive';
                 const statusText = isActive ? 'פעיל' : 'לא פעיל';
                 const lastLogin = user.last_login ? new Date(user.last_login).toLocaleDateString('he-IL') : '-';
@@ -657,7 +657,7 @@
 
             const userId = parseInt(cell.dataset.userId);
             const user = allUsers.find(u => u.id === userId);
-            const currentValue = !user.is_blocked ? 1 : 0;
+            const currentValue = user.is_blocked == 0 ? 1 : 0;
 
             cell.classList.add('editing');
             const originalContent = cell.innerHTML;
