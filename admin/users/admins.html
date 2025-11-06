@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ניהול מנהלים - מערכת ניהול</title>
-    <link rel="stylesheet" href="../style.css">
-    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="../admin.css">
     <style>
         .page-actions {
             display: flex;
@@ -174,29 +173,29 @@
         </div>
 
         <nav class="sidebar-nav">
-            <a href="./dashboard.html" class="nav-item">
+            <a href="../dashboard.html" class="nav-item">
                 <span class="nav-icon">📊</span>
                 <span>לוח בקרה</span>
             </a>
 
             <div style="padding: 10px 15px; font-size: 12px; color: #999; font-weight: bold; margin-top: 10px;">ניהול מערכת</div>
 
-            <a href="./users/admins.html" class="nav-item active">
+            <a href="./admins.html" class="nav-item active">
                 <span class="nav-icon">👨‍💼</span>
                 <span>מנהלי מערכת</span>
             </a>
-            <a href="./users/invites.html" class="nav-item">
+            <a href="./invites.html" class="nav-item">
                 <span class="nav-icon">✉️</span>
                 <span>הזמנות הרשמה</span>
             </a>
 
             <div style="padding: 10px 15px; font-size: 12px; color: #999; font-weight: bold; margin-top: 10px;">ניהול קורס</div>
 
-            <a href="./course/index.php" class="nav-item">
+            <a href="../course/index.php" class="nav-item">
                 <span class="nav-icon">🎓</span>
                 <span>תלמידים</span>
             </a>
-            <a href="./course/tasks.html" class="nav-item">
+            <a href="../course/tasks.html" class="nav-item">
                 <span class="nav-icon">📝</span>
                 <span>ספריית משימות</span>
             </a>
@@ -260,14 +259,14 @@
         </div>
     </div>
 
-    <script src="utils.js"></script>
+    <script src="../utils.js"></script>
     <script>
         let admins = [];
         let selectedAdminId = null;
 
         async function loadAdmins() {
             try {
-                const response = await fetch('api.php', {
+                const response = await fetch('../api.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'list_admins' })
@@ -384,7 +383,7 @@
             if (!confirm(`האם אתה בטוח שברצונך ל${action} משתמש זה?`)) return;
 
             try {
-                const response = await fetch('api.php', {
+                const response = await fetch('../api.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -411,7 +410,7 @@
             if (!confirm(`האם אתה בטוח שברצונך למחוק את המנהל "${username}"?\n\nפעולה זו אינה הפיכה!`)) return;
 
             try {
-                const response = await fetch('api.php', {
+                const response = await fetch('../api.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -474,7 +473,7 @@
             }
 
             try {
-                const response = await fetch('api.php', {
+                const response = await fetch('../api.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -511,7 +510,7 @@
             if (!confirm('האם אתה בטוח שברצונך להתנתק?')) return;
 
             try {
-                await fetch('auth.php', {
+                await fetch('../auth.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'logout' })
@@ -520,7 +519,7 @@
                 console.error('Logout error:', error);
             }
 
-            window.location.href = 'index.html';
+            window.location.href = '../index.html';
         }
 
         // Load admins on page load
