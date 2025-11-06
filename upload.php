@@ -111,12 +111,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
         'application/zip'
     ];
 
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mimeType = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
+    // Get MIME type safely with fallback
+    $mimeType = 'application/octet-stream'; // default
+    if (function_exists('mime_content_type') && file_exists($file['tmp_name'])) {
+        $mimeType = mime_content_type($file['tmp_name']);
+    } elseif (function_exists('finfo_file')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+    }
 
-    if (!in_array($mimeType, $allowedTypes)) {
+    // Also check by file extension as fallback
+    $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $extensionToMime = [
+        'pdf' => 'application/pdf',
+        'doc' => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xls' => 'application/vnd.ms-excel',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'zip' => 'application/zip',
+        'txt' => 'text/plain'
+    ];
+
+    // Use extension-based MIME if detection failed
+    if ($mimeType === 'application/octet-stream' && isset($extensionToMime[$extension])) {
+        $mimeType = $extensionToMime[$extension];
+    }
+
+    if (!in_array($mimeType, $allowedTypes) && !isset($extensionToMime[$extension])) {
         http_response_code(400);
+        error_log("Unsupported file type for task submission: " . $mimeType . " (extension: " . $extension . ")");
         echo json_encode(['success' => false, 'message' => 'סוג קובץ לא נתמך']);
         exit;
     }
