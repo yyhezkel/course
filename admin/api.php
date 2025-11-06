@@ -1733,6 +1733,8 @@ if ($action === 'review_task') {
     $userTaskId = $input['user_task_id'] ?? '';
     $status = $input['status'] ?? '';
     $reviewNotes = $input['review_notes'] ?? '';
+    $grade = $input['grade'] ?? null; // Score 0-100
+    $feedback = $input['feedback'] ?? '';
 
     if (empty($userTaskId) || empty($status)) {
         http_response_code(400);
@@ -1746,23 +1748,41 @@ if ($action === 'review_task') {
         exit;
     }
 
+    // Validate grade if provided
+    if ($grade !== null && ($grade < 0 || $grade > 100)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'ציון חייב להיות בין 0 ל-100']);
+        exit;
+    }
+
     try {
         $adminId = $_SESSION['admin_id'] ?? null;
 
-        // Update task status
-        $stmt = $db->prepare("UPDATE user_tasks SET status = ? WHERE id = ?");
-        $stmt->execute([$status, $userTaskId]);
-
-        // Update task progress with review info
+        // Update task status, grade, and feedback
         $stmt = $db->prepare("
-            UPDATE task_progress
-            SET reviewed_at = CURRENT_TIMESTAMP,
-                reviewed_by = ?,
-                review_notes = ?,
-                status = ?
-            WHERE user_task_id = ?
+            UPDATE user_tasks
+            SET status = ?,
+                grade = ?,
+                feedback = ?,
+                reviewed_at = CURRENT_TIMESTAMP
+            WHERE id = ?
         ");
-        $stmt->execute([$adminId, $reviewNotes, $status, $userTaskId]);
+        $stmt->execute([$status, $grade, $feedback, $userTaskId]);
+
+        // Update task progress with review info (if table exists)
+        try {
+            $stmt = $db->prepare("
+                UPDATE task_progress
+                SET reviewed_at = CURRENT_TIMESTAMP,
+                    reviewed_by = ?,
+                    review_notes = ?,
+                    status = ?
+                WHERE user_task_id = ?
+            ");
+            $stmt->execute([$adminId, $reviewNotes, $status, $userTaskId]);
+        } catch (Exception $progressError) {
+            // task_progress table might not exist, continue anyway
+        }
 
         // Create notification for user
         $stmt = $db->prepare("SELECT user_id, task_id FROM user_tasks WHERE id = ?");
@@ -1795,6 +1815,119 @@ if ($action === 'review_task') {
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'שגיאה בעדכון הסטטוס: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Remove or reset a task for a specific user
+if ($action === 'remove_user_task' || $action === 'reset_user_task') {
+    $userTaskId = $input['user_task_id'] ?? '';
+
+    if (empty($userTaskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה']);
+        exit;
+    }
+
+    try {
+        // Get task info before deletion/reset
+        $stmt = $db->prepare("SELECT user_id, task_id FROM user_tasks WHERE id = ?");
+        $stmt->execute([$userTaskId]);
+        $taskInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$taskInfo) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'משימה לא נמצאה']);
+            exit;
+        }
+
+        if ($action === 'reset_user_task') {
+            // Reset task - clear all progress and set back to pending
+            $stmt = $db->prepare("
+                UPDATE user_tasks
+                SET status = 'pending',
+                    grade = NULL,
+                    feedback = NULL,
+                    submission_text = NULL,
+                    submission_file_path = NULL,
+                    submitted_at = NULL,
+                    reviewed_at = NULL
+                WHERE id = ?
+            ");
+            $stmt->execute([$userTaskId]);
+
+            // Delete task progress records
+            try {
+                $stmt = $db->prepare("DELETE FROM task_progress WHERE user_task_id = ?");
+                $stmt->execute([$userTaskId]);
+            } catch (Exception $progressError) {
+                // task_progress table might not exist
+            }
+
+            // Delete task submissions
+            try {
+                $stmt = $db->prepare("DELETE FROM task_submissions WHERE user_task_id = ?");
+                $stmt->execute([$userTaskId]);
+            } catch (Exception $submissionError) {
+                // task_submissions table might not exist
+            }
+
+            // Create notification for user
+            $stmt = $db->prepare("
+                INSERT INTO notifications (user_id, title, message, notification_type, related_user_task_id)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $taskInfo['user_id'],
+                'המשימה אופסה',
+                'המשימה שלך אופסה על ידי המנחה. תוכל להתחיל מחדש.',
+                'info',
+                $userTaskId
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'המשימה אופסה בהצלחה'
+            ]);
+        } else {
+            // Remove task - delete completely
+            $stmt = $db->prepare("DELETE FROM user_tasks WHERE id = ?");
+            $stmt->execute([$userTaskId]);
+
+            // The CASCADE DELETE should handle related records automatically
+            // But let's clean up explicitly just in case
+            try {
+                $db->prepare("DELETE FROM task_progress WHERE user_task_id = ?")->execute([$userTaskId]);
+                $db->prepare("DELETE FROM task_submissions WHERE user_task_id = ?")->execute([$userTaskId]);
+                $db->prepare("DELETE FROM task_comments WHERE user_task_id = ?")->execute([$userTaskId]);
+            } catch (Exception $cleanupError) {
+                // Tables might not exist, continue
+            }
+
+            // Create notification for user
+            try {
+                $stmt = $db->prepare("
+                    INSERT INTO notifications (user_id, title, message, notification_type)
+                    VALUES (?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $taskInfo['user_id'],
+                    'משימה הוסרה',
+                    'אחת מהמשימות שלך הוסרה על ידי המנחה.',
+                    'info'
+                ]);
+            } catch (Exception $notificationError) {
+                // Notifications might not work, continue
+            }
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'המשימה הוסרה בהצלחה'
+            ]);
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה: ' . $e->getMessage()]);
     }
     exit;
 }
