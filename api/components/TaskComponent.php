@@ -63,6 +63,9 @@ class TaskComponent extends BaseComponent {
                 $tasks = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
 
+            // Log dashboard view
+            $this->logUserActivity($userId, 'view_dashboard', null, null, json_encode(['task_count' => count($tasks)]));
+
             $this->sendSuccess([
                 'user' => $user,
                 'tasks' => $tasks
@@ -135,6 +138,9 @@ class TaskComponent extends BaseComponent {
 
             $task['materials'] = $materials;
 
+            // Log task view
+            $this->logUserActivity($userId, 'view_task', 'task', $task['task_id'], json_encode(['title' => $task['title']]));
+
             $this->sendSuccess(['task' => $task]);
 
         } catch (Exception $e) {
@@ -200,6 +206,9 @@ class TaskComponent extends BaseComponent {
                 ");
                 $stmt->execute([$userTaskId, $newStatus]);
             }
+
+            // Log task status update
+            $this->logUserActivity($userId, 'update_task_status', 'task', $userTaskId, json_encode(['status' => $newStatus]));
 
             $this->sendSuccess([], 'הסטטוס עודכן בהצלחה.');
 

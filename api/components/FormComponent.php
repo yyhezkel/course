@@ -174,6 +174,9 @@ class FormComponent extends BaseComponent {
                 error_log("Error updating full_name: " . $e->getMessage());
             }
 
+            // Log form submission
+            $this->logUserActivity($userId, 'submit_form', 'form', $formId, json_encode(['question_count' => count($formData)]));
+
             $this->db->commit();
             $this->sendSuccess([], 'הטופס נשמר בהצלחה!');
         } else {

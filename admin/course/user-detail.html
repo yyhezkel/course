@@ -795,7 +795,8 @@
 
             logList.innerHTML = activities.map(activity => {
                 const date = new Date(activity.created_at).toLocaleString('he-IL');
-                const adminName = activity.admin_name || activity.admin_username || 'מערכת';
+                const isUserAction = activity.actor_type === 'user';
+                const actorName = isUserAction ? 'משתמש' : (activity.admin_name || activity.admin_username || 'מערכת');
 
                 // Format action text
                 let actionText = '';
@@ -859,8 +860,28 @@
                         actionIcon = '🔓';
                         actionColor = '#059669';
                         break;
+                    case 'view_dashboard':
+                        actionText = 'צפה בדשבורד';
+                        actionIcon = '👁️';
+                        actionColor = '#6b7280';
+                        break;
+                    case 'view_task':
+                        actionText = 'צפה במשימה';
+                        actionIcon = '👁️';
+                        actionColor = '#6b7280';
+                        break;
+                    case 'update_task_status':
+                        actionText = 'עדכן סטטוס משימה';
+                        actionIcon = '🔄';
+                        actionColor = '#2563eb';
+                        break;
+                    case 'submit_form':
+                        actionText = 'שלח טופס';
+                        actionIcon = '📨';
+                        actionColor = '#059669';
+                        break;
                     default:
-                        actionText = activity.action;
+                        actionText = activity.action.replace(/_/g, ' ');
                         actionIcon = '📝';
                         actionColor = '#6b7280';
                 }
@@ -872,6 +893,7 @@
                         entityText = 'משתמש';
                         break;
                     case 'user_task':
+                    case 'task':
                         entityText = 'משימה';
                         break;
                     case 'form':
@@ -881,24 +903,49 @@
                         entityText = 'תשובה לטופס';
                         break;
                     default:
-                        entityText = activity.entity_type;
+                        entityText = activity.entity_type || '';
+                }
+
+                // Parse details if available
+                let detailsHTML = '';
+                if (activity.details) {
+                    try {
+                        const details = JSON.parse(activity.details);
+                        const detailsText = Object.entries(details).map(([key, value]) => `${key}: ${value}`).join(', ');
+                        if (detailsText) {
+                            detailsHTML = `
+                                <div style="margin-top: 8px; padding: 8px; background: #f9fafb; border-radius: 4px; font-size: 12px; color: #6b7280;">
+                                    ${detailsText}
+                                </div>
+                            `;
+                        }
+                    } catch (e) {
+                        // If not JSON, display as is
+                        detailsHTML = `
+                            <div style="margin-top: 8px; padding: 8px; background: #f9fafb; border-radius: 4px; font-size: 12px; color: #6b7280;">
+                                ${activity.details}
+                            </div>
+                        `;
+                    }
                 }
 
                 return `
-                    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
+                    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 10px; border-right: 3px solid ${isUserAction ? '#2563eb' : '#f59e0b'};">
                         <div style="display: flex; align-items: start; gap: 12px;">
                             <div style="font-size: 24px; flex-shrink: 0;">${actionIcon}</div>
                             <div style="flex: 1;">
                                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                                     <div>
                                         <span style="font-weight: 600; color: ${actionColor};">${actionText}</span>
-                                        <span style="color: #6b7280; margin: 0 6px;">•</span>
-                                        <span style="color: #6b7280;">${entityText}</span>
+                                        ${entityText ? `<span style="color: #6b7280; margin: 0 6px;">•</span><span style="color: #6b7280;">${entityText}</span>` : ''}
+                                        <span style="background: ${isUserAction ? '#eff6ff' : '#fef3c7'}; color: ${isUserAction ? '#1e40af' : '#92400e'}; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 8px; font-weight: 500;">
+                                            ${isUserAction ? 'פעילות משתמש' : 'פעילות מנהל'}
+                                        </span>
                                     </div>
                                     <span style="color: #9ca3af; font-size: 13px; white-space: nowrap;">${date}</span>
                                 </div>
                                 <div style="color: #6b7280; font-size: 14px;">
-                                    <span>על ידי: <strong>${adminName}</strong></span>
+                                    <span>על ידי: <strong>${actorName}</strong></span>
                                     ${activity.ip_address ? `<span style="margin-right: 15px;">IP: ${activity.ip_address}</span>` : ''}
                                 </div>
                                 ${activity.old_value || activity.new_value ? `
@@ -907,6 +954,7 @@
                                         ${activity.new_value ? `<div style="color: #059669;"><strong>ערך חדש:</strong> ${activity.new_value}</div>` : ''}
                                     </div>
                                 ` : ''}
+                                ${detailsHTML}
                             </div>
                         </div>
                     </div>

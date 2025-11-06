@@ -2505,7 +2505,7 @@ if ($action === 'get_user_detail') {
 // Get user activity log
 if ($action === 'get_user_activity_log') {
     $userId = $input['user_id'] ?? '';
-    $limit = $input['limit'] ?? 50;
+    $limit = $input['limit'] ?? 100;
 
     if (empty($userId)) {
         http_response_code(400);
@@ -2514,7 +2514,46 @@ if ($action === 'get_user_activity_log') {
     }
 
     try {
-        // Get activity logs related to this user
+        // Ensure user_activity_log table exists
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS user_activity_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                entity_type TEXT,
+                entity_id INTEGER,
+                details TEXT,
+                ip_address TEXT,
+                user_agent TEXT,
+                session_id TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        ");
+
+        // Get user activity logs (actual user actions)
+        $stmt = $db->prepare("
+            SELECT
+                id,
+                user_id,
+                action,
+                entity_type,
+                entity_id,
+                details,
+                ip_address,
+                user_agent,
+                session_id,
+                created_at,
+                'user' as actor_type
+            FROM user_activity_log
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$userId, $limit]);
+        $userActivities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get admin activity logs related to this user (admin actions on user)
         $stmt = $db->prepare("
             SELECT
                 al.id,
@@ -2526,7 +2565,12 @@ if ($action === 'get_user_activity_log') {
                 al.ip_address,
                 al.created_at,
                 au.full_name as admin_name,
-                au.username as admin_username
+                au.username as admin_username,
+                'admin' as actor_type,
+                NULL as details,
+                NULL as user_agent,
+                NULL as session_id,
+                NULL as user_id
             FROM activity_log al
             LEFT JOIN admin_users au ON al.admin_user_id = au.id
             WHERE (al.entity_type = 'user' AND al.entity_id = ?)
@@ -2537,7 +2581,16 @@ if ($action === 'get_user_activity_log') {
             LIMIT ?
         ");
         $stmt->execute([$userId, $userId, $limit]);
-        $activityLog = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $adminActivities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Merge and sort all activities by created_at
+        $allActivities = array_merge($userActivities, $adminActivities);
+        usort($allActivities, function($a, $b) {
+            return strtotime($b['created_at']) - strtotime($a['created_at']);
+        });
+
+        // Limit to requested number
+        $allActivities = array_slice($allActivities, 0, $limit);
 
         // Also get login history from users table if available
         $stmt = $db->prepare("SELECT last_login FROM users WHERE id = ?");
@@ -2546,7 +2599,7 @@ if ($action === 'get_user_activity_log') {
 
         echo json_encode([
             'success' => true,
-            'activity_log' => $activityLog,
+            'activity_log' => $allActivities,
             'last_login' => $user['last_login'] ?? null
         ]);
     } catch (Exception $e) {
