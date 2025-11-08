@@ -2863,6 +2863,75 @@ if ($action === 'get_all_tasks') {
     exit;
 }
 
+// Get task assignments for a specific task
+if ($action === 'get_task_assignments') {
+    $taskId = $input['task_id'] ?? '';
+
+    if (empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT
+                ut.*,
+                u.full_name,
+                u.email,
+                u.phone,
+                ct.title as task_title,
+                ct.points as task_points
+            FROM user_tasks ut
+            INNER JOIN users u ON ut.user_id = u.id
+            INNER JOIN course_tasks ct ON ut.task_id = ct.id
+            WHERE ut.task_id = ?
+            ORDER BY u.full_name ASC
+        ");
+        $stmt->execute([$taskId]);
+        $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'assignments' => $assignments
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת ההקצאות: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+// Get all task assignments (for all tasks)
+if ($action === 'get_all_task_assignments') {
+    try {
+        $stmt = $db->query("
+            SELECT
+                ut.*,
+                u.full_name,
+                u.email,
+                u.phone,
+                ct.title as task_title,
+                ct.points as task_points,
+                ct.task_type
+            FROM user_tasks ut
+            INNER JOIN users u ON ut.user_id = u.id
+            INNER JOIN course_tasks ct ON ut.task_id = ct.id
+            ORDER BY ct.id ASC, u.full_name ASC
+        ");
+        $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'assignments' => $assignments
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת ההקצאות: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 // Assign task to user
 if ($action === 'assign_task') {
     $userId = $input['user_id'] ?? '';

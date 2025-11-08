@@ -6,7 +6,7 @@
  * <?php $activePage = 'dashboard'; include __DIR__ . '/components/sidebar.php'; ?>
  *
  * Active page options:
- * - dashboard, students, tasks, assign, materials, reports
+ * - dashboard, students, tasks, task-status, assign, materials, reports
  * - forms, questions, responses
  */
 
@@ -47,6 +47,10 @@ function isActive($page, $activePage) {
         <a href="<?php echo $basePath ?? '../'; ?>course/tasks.php" class="nav-item <?php echo isActive('tasks', $activePage); ?>">
             <span class="nav-icon">📝</span>
             <span>ספריית משימות</span>
+        </a>
+        <a href="<?php echo $basePath ?? '../'; ?>course/task-status.php" class="nav-item <?php echo isActive('task-status', $activePage); ?>">
+            <span class="nav-icon">📊</span>
+            <span>מעקב סטטוס משימות</span>
         </a>
         <a href="<?php echo $basePath ?? '../'; ?>course/assign.php" class="nav-item <?php echo isActive('assign', $activePage); ?>">
             <span class="nav-icon">📤</span>
