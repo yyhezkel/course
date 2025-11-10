@@ -177,6 +177,20 @@
         </div>
     </div>
 
+    <!-- File Preview Modal -->
+    <div id="filePreviewModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; overflow: auto;">
+        <div style="position: relative; min-height: 100vh; padding: 20px;">
+            <div style="position: sticky; top: 20px; z-index: 10; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 15px 20px; border-radius: 10px;">
+                <div style="color: white; font-size: 18px; font-weight: 500;" id="filePreviewTitle">תצוגה מקדימה</div>
+                <div style="display: flex; gap: 10px;">
+                    <a id="filePreviewDownload" href="#" download style="background: #2563eb; color: white; border: none; border-radius: 6px; padding: 10px 20px; text-decoration: none; font-weight: 500; display: inline-block;">📥 הורדה</a>
+                    <button onclick="closeFilePreview()" style="background: #ef4444; color: white; border: none; border-radius: 6px; padding: 10px 20px; cursor: pointer; font-weight: 500;">✕ סגור</button>
+                </div>
+            </div>
+            <div id="filePreviewContent" style="display: flex; justify-content: center; align-items: center; min-height: calc(100vh - 120px);"></div>
+        </div>
+    </div>
+
     <script>
         // Mobile Menu Toggle
         function toggleMobileMenu() {
@@ -313,6 +327,9 @@
                 avatarElement.style.backgroundSize = 'cover';
                 avatarElement.style.backgroundPosition = 'center';
                 avatarElement.textContent = '';
+                avatarElement.style.cursor = 'pointer';
+                avatarElement.title = 'לחץ לצפייה בתמונת פרופיל';
+                avatarElement.onclick = () => previewFile(userData.profile_photo, 'תמונת פרופיל - ' + (userData.full_name || userData.tz), 'image/jpeg');
             } else {
                 // Display initials
                 let initials = '??';
@@ -324,6 +341,9 @@
                 }
                 avatarElement.style.backgroundImage = '';
                 avatarElement.textContent = initials;
+                avatarElement.style.cursor = 'default';
+                avatarElement.title = '';
+                avatarElement.onclick = null;
             }
 
             document.getElementById('userName').textContent = userData.full_name || userData.tz || 'תלמיד';
@@ -413,18 +433,18 @@
                                     return `
                                         <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0; padding: 6px; background: white; border-radius: 4px;">
                                             ${isImage ? `
-                                                <div style="width: 40px; height: 40px; border-radius: 4px; overflow: hidden; flex-shrink: 0;">
+                                                <div style="width: 40px; height: 40px; border-radius: 4px; overflow: hidden; flex-shrink: 0; cursor: pointer;" onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')">
                                                     <img src="${sub.filepath}" style="width: 100%; height: 100%; object-fit: cover;" alt="תצוגה מקדימה">
                                                 </div>
                                             ` : isPdf ? `
-                                                <div style="width: 40px; height: 40px; background: #ef4444; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; flex-shrink: 0;">PDF</div>
+                                                <div onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')" style="width: 40px; height: 40px; background: #ef4444; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; flex-shrink: 0; cursor: pointer;">PDF</div>
                                             ` : isVideo ? `
-                                                <div style="width: 40px; height: 40px; background: #8b5cf6; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; flex-shrink: 0;">▶</div>
+                                                <div onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')" style="width: 40px; height: 40px; background: #8b5cf6; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; flex-shrink: 0; cursor: pointer;">▶</div>
                                             ` : `
-                                                <div style="width: 40px; height: 40px; background: #6b7280; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; flex-shrink: 0;">📄</div>
+                                                <div onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')" style="width: 40px; height: 40px; background: #6b7280; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px; flex-shrink: 0; cursor: pointer;">📄</div>
                                             `}
-                                            <span style="flex: 1; font-size: 13px; color: #374151;">${sub.original_filename}</span>
-                                            <a href="${sub.filepath}" target="_blank" style="color: #2563eb; text-decoration: none; font-size: 12px; white-space: nowrap;">📥 הורדה</a>
+                                            <span onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')" style="flex: 1; font-size: 13px; color: #374151; cursor: pointer; text-decoration: underline;" title="לחץ לצפייה">${sub.original_filename}</span>
+                                            <a href="${sub.filepath}" target="_blank" download style="color: #2563eb; text-decoration: none; font-size: 12px; white-space: nowrap;">📥 הורדה</a>
                                         </div>
                                     `;
                                 }).join('')}
@@ -658,35 +678,47 @@
                                 return `
                                     <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #d1fae5;">
                                         ${isImage ? `
-                                            <div style="margin-bottom: 10px; text-align: center;">
+                                            <div style="margin-bottom: 10px; text-align: center; cursor: pointer;" onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')" title="לחץ לתצוגה מלאה">
                                                 <img src="${sub.filepath}" style="max-width: 100%; max-height: 300px; border-radius: 6px; border: 1px solid #d1fae5;" alt="תצוגה מקדימה">
                                             </div>
                                         ` : ''}
                                         ${isVideo ? `
-                                            <div style="margin-bottom: 10px;">
+                                            <div style="margin-bottom: 10px; position: relative;">
                                                 <video controls style="max-width: 100%; max-height: 300px; border-radius: 6px; border: 1px solid #d1fae5;">
                                                     <source src="${sub.filepath}" type="${sub.mime_type}">
                                                     הדפדפן שלך אינו תומך בהצגת וידאו
                                                 </video>
+                                                <button onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')" style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">🔍 תצוגה מלאה</button>
                                             </div>
                                         ` : ''}
                                         ${isPdf ? `
-                                            <div style="margin-bottom: 10px; padding: 20px; background: #fee2e2; border-radius: 6px; text-align: center;">
+                                            <div onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')" style="margin-bottom: 10px; padding: 20px; background: #fee2e2; border-radius: 6px; text-align: center; cursor: pointer;" title="לחץ לצפייה">
                                                 <div style="font-size: 48px; color: #dc2626; margin-bottom: 10px;">📄</div>
-                                                <div style="font-size: 14px; color: #991b1b;">קובץ PDF</div>
+                                                <div style="font-size: 14px; color: #991b1b;">קובץ PDF - לחץ לצפייה</div>
+                                            </div>
+                                        ` : ''}
+                                        ${!isImage && !isVideo && !isPdf ? `
+                                            <div onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')" style="margin-bottom: 10px; padding: 20px; background: #f3f4f6; border-radius: 6px; text-align: center; cursor: pointer;" title="לחץ לצפייה">
+                                                <div style="font-size: 48px; color: #6b7280; margin-bottom: 10px;">📄</div>
+                                                <div style="font-size: 14px; color: #374151;">לחץ לצפייה</div>
                                             </div>
                                         ` : ''}
                                         <div style="display: flex; justify-content: space-between; align-items: start;">
                                             <div style="flex: 1;">
-                                                <div style="font-weight: 500; color: #065f46; margin-bottom: 4px;">${sub.original_filename}</div>
+                                                <div onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')" style="font-weight: 500; color: #065f46; margin-bottom: 4px; cursor: pointer; text-decoration: underline;" title="לחץ לצפייה">${sub.original_filename}</div>
                                                 <div style="font-size: 12px; color: #059669;">
                                                     ${fileSize} KB • הועלה ב-${uploadDate}
                                                 </div>
                                                 ${sub.description ? `<div style="font-size: 13px; color: #4b5563; margin-top: 4px;">${sub.description}</div>` : ''}
                                             </div>
-                                            <a href="${sub.filepath}" target="_blank" download style="background: #059669; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 13px; white-space: nowrap; margin-right: 10px;">
-                                                📥 הורדה
-                                            </a>
+                                            <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                                                <button onclick="previewFile('${sub.filepath}', '${sub.original_filename}', '${sub.mime_type}')" style="background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap;">
+                                                    👁️ צפייה
+                                                </button>
+                                                <a href="${sub.filepath}" target="_blank" download style="background: #059669; color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 13px; white-space: nowrap; display: inline-block;">
+                                                    📥 הורדה
+                                                </a>
+                                            </div>
                                         </div>
                                     </div>
                                 `;
@@ -1166,6 +1198,168 @@
         function openWhatsApp(resetLink) {
             const message = encodeURIComponent(`שלום,\n\nנוצר עבורך קישור לאיפוס סיסמה:\n${resetLink}\n\nהקישור תקף ל-24 שעות בלבד.\n\nבברכה,\nצוות הניהול`);
             window.open(`https://wa.me/?text=${message}`, '_blank');
+        }
+
+        // File Preview Functions
+        function previewFile(filepath, filename, mimeType) {
+            const modal = document.getElementById('filePreviewModal');
+            const content = document.getElementById('filePreviewContent');
+            const title = document.getElementById('filePreviewTitle');
+            const downloadBtn = document.getElementById('filePreviewDownload');
+
+            // Set title and download link
+            title.textContent = filename || 'תצוגה מקדימה';
+            downloadBtn.href = filepath;
+            downloadBtn.download = filename || 'file';
+
+            // Determine file type and render appropriate preview
+            let previewHTML = '';
+
+            if (!mimeType) {
+                // Try to determine mime type from file extension
+                const ext = filename.toLowerCase().split('.').pop();
+                const mimeMap = {
+                    'jpg': 'image/jpeg',
+                    'jpeg': 'image/jpeg',
+                    'png': 'image/png',
+                    'gif': 'image/gif',
+                    'webp': 'image/webp',
+                    'svg': 'image/svg+xml',
+                    'pdf': 'application/pdf',
+                    'mp4': 'video/mp4',
+                    'webm': 'video/webm',
+                    'ogg': 'video/ogg',
+                    'mov': 'video/quicktime',
+                    'avi': 'video/x-msvideo',
+                    'mp3': 'audio/mpeg',
+                    'wav': 'audio/wav',
+                    'doc': 'application/msword',
+                    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'xls': 'application/vnd.ms-excel',
+                    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'ppt': 'application/vnd.ms-powerpoint',
+                    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                    'txt': 'text/plain',
+                    'csv': 'text/csv'
+                };
+                mimeType = mimeMap[ext] || 'application/octet-stream';
+            }
+
+            // Handle different file types
+            if (mimeType.startsWith('image/')) {
+                // Image preview
+                previewHTML = `
+                    <img src="${filepath}" style="max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);" alt="${filename}">
+                `;
+            } else if (mimeType.startsWith('video/')) {
+                // Video preview
+                previewHTML = `
+                    <video controls autoplay style="max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+                        <source src="${filepath}" type="${mimeType}">
+                        הדפדפן שלך אינו תומך בהצגת וידאו
+                    </video>
+                `;
+            } else if (mimeType.startsWith('audio/')) {
+                // Audio preview
+                previewHTML = `
+                    <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; min-width: 400px;">
+                        <div style="font-size: 64px; margin-bottom: 20px;">🎵</div>
+                        <div style="font-size: 18px; font-weight: 500; color: #1f2937; margin-bottom: 20px;">${filename}</div>
+                        <audio controls autoplay style="width: 100%;">
+                            <source src="${filepath}" type="${mimeType}">
+                            הדפדפן שלך אינו תומך בהשמעת אודיו
+                        </audio>
+                    </div>
+                `;
+            } else if (mimeType === 'application/pdf') {
+                // PDF preview using iframe
+                previewHTML = `
+                    <iframe src="${filepath}" style="width: 90vw; height: 90vh; border: none; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); background: white;"></iframe>
+                `;
+            } else if (mimeType === 'text/plain' || mimeType === 'text/csv') {
+                // Text file preview
+                previewHTML = `
+                    <div style="background: white; padding: 40px; border-radius: 12px; max-width: 90vw; max-height: 90vh; overflow: auto;">
+                        <div style="font-size: 18px; font-weight: 500; color: #1f2937; margin-bottom: 20px;">${filename}</div>
+                        <iframe src="${filepath}" style="width: 100%; min-height: 500px; border: 1px solid #e5e7eb; border-radius: 6px;"></iframe>
+                    </div>
+                `;
+            } else if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('powerpoint') ||
+                       mimeType.includes('openxmlformats')) {
+                // Office documents - use Microsoft Office Online Viewer or Google Docs Viewer
+                const encodedUrl = encodeURIComponent(window.location.origin + filepath);
+                previewHTML = `
+                    <div style="background: white; padding: 40px; border-radius: 12px; text-align: center; max-width: 90vw;">
+                        <div style="font-size: 64px; margin-bottom: 20px;">📄</div>
+                        <div style="font-size: 18px; font-weight: 500; color: #1f2937; margin-bottom: 20px;">${filename}</div>
+                        <p style="color: #6b7280; margin-bottom: 30px;">קובץ Office - בחר כיצד לפתוח:</p>
+                        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                            <a href="https://view.officeapps.live.com/op/view.aspx?src=${encodedUrl}" target="_blank" style="background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+                                📊 פתח ב-Office Online
+                            </a>
+                            <a href="https://docs.google.com/viewer?url=${encodedUrl}&embedded=true" target="_blank" style="background: #059669; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+                                📑 פתח ב-Google Docs
+                            </a>
+                            <a href="${filepath}" download="${filename}" style="background: #f59e0b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+                                📥 הורד ופתח במחשב
+                            </a>
+                        </div>
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                            <p style="color: #6b7280; font-size: 14px; margin-bottom: 15px;">או תצוגה מקדימה באמצעות Google Docs:</p>
+                            <iframe src="https://docs.google.com/viewer?url=${encodedUrl}&embedded=true" style="width: 80vw; height: 70vh; border: 1px solid #e5e7eb; border-radius: 6px;"></iframe>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Unknown file type - show download option
+                const iconMap = {
+                    'zip': '📦',
+                    'rar': '📦',
+                    '7z': '📦',
+                    'tar': '📦',
+                    'gz': '📦',
+                    'json': '📋',
+                    'xml': '📋',
+                    'html': '🌐',
+                    'css': '🎨',
+                    'js': '⚡',
+                    'py': '🐍',
+                    'java': '☕',
+                    'cpp': '⚙️',
+                    'c': '⚙️',
+                    'h': '⚙️'
+                };
+                const ext = filename.toLowerCase().split('.').pop();
+                const icon = iconMap[ext] || '📄';
+
+                previewHTML = `
+                    <div style="background: white; padding: 60px; border-radius: 12px; text-align: center; max-width: 500px;">
+                        <div style="font-size: 80px; margin-bottom: 20px;">${icon}</div>
+                        <div style="font-size: 18px; font-weight: 500; color: #1f2937; margin-bottom: 10px;">${filename}</div>
+                        <p style="color: #6b7280; margin-bottom: 30px;">לא ניתן להציג תצוגה מקדימה של קובץ זה בדפדפן</p>
+                        <a href="${filepath}" download="${filename}" style="background: #2563eb; color: white; padding: 15px 30px; border-radius: 6px; text-decoration: none; font-weight: 500; display: inline-block;">
+                            📥 הורד קובץ
+                        </a>
+                    </div>
+                `;
+            }
+
+            content.innerHTML = previewHTML;
+            modal.style.display = 'block';
+
+            // Close on ESC key
+            document.addEventListener('keydown', closeFilePreviewOnEsc);
+        }
+
+        function closeFilePreview() {
+            document.getElementById('filePreviewModal').style.display = 'none';
+            document.removeEventListener('keydown', closeFilePreviewOnEsc);
+        }
+
+        function closeFilePreviewOnEsc(e) {
+            if (e.key === 'Escape') {
+                closeFilePreview();
+            }
         }
     </script>
 </body>
