@@ -2932,6 +2932,45 @@ if ($action === 'get_all_task_assignments') {
     exit;
 }
 
+// Get all submissions for a specific task (admin view)
+if ($action === 'get_task_submissions') {
+    $taskId = $input['task_id'] ?? '';
+
+    if (empty($taskId)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'חסר מזהה משימה']);
+        exit;
+    }
+
+    try {
+        $stmt = $db->prepare("
+            SELECT
+                ts.*,
+                ut.user_id,
+                ut.task_id,
+                u.full_name,
+                u.email,
+                u.profile_photo_url
+            FROM task_submissions ts
+            INNER JOIN user_tasks ut ON ts.user_task_id = ut.id
+            INNER JOIN users u ON ut.user_id = u.id
+            WHERE ut.task_id = ?
+            ORDER BY ts.uploaded_at DESC
+        ");
+        $stmt->execute([$taskId]);
+        $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode([
+            'success' => true,
+            'submissions' => $submissions
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'שגיאה בטעינת ההעלאות: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
 // Assign task to user
 if ($action === 'assign_task') {
     $userId = $input['user_id'] ?? '';
