@@ -17,7 +17,8 @@ async function checkAuth() {
         const authPath = (currentPath.includes('/users/') ||
                          currentPath.includes('/forms/') ||
                          currentPath.includes('/questions/') ||
-                         currentPath.includes('/responses/'))
+                         currentPath.includes('/responses/') ||
+                         currentPath.includes('/course/'))
             ? '../auth.php'
             : './auth.php';
 
@@ -45,7 +46,8 @@ async function checkAuth() {
         const loginPath = (currentPath.includes('/users/') ||
                           currentPath.includes('/forms/') ||
                           currentPath.includes('/questions/') ||
-                          currentPath.includes('/responses/'))
+                          currentPath.includes('/responses/') ||
+                          currentPath.includes('/course/'))
             ? '../index.html'
             : './index.html';
         window.location.href = loginPath;
@@ -67,7 +69,8 @@ async function logout() {
         const authPath = (currentPath.includes('/users/') ||
                          currentPath.includes('/forms/') ||
                          currentPath.includes('/questions/') ||
-                         currentPath.includes('/responses/'))
+                         currentPath.includes('/responses/') ||
+                         currentPath.includes('/course/'))
             ? '../auth.php'
             : './auth.php';
 
@@ -110,11 +113,12 @@ async function apiRequest(action, data = {}, method = 'GET') {
         const currentPath = window.location.pathname;
         let apiPath = './api.php';
 
-        // If we're in a subdirectory (users/, forms/, questions/, responses/)
+        // If we're in a subdirectory (users/, forms/, questions/, responses/, course/)
         if (currentPath.includes('/users/') ||
             currentPath.includes('/forms/') ||
             currentPath.includes('/questions/') ||
-            currentPath.includes('/responses/')) {
+            currentPath.includes('/responses/') ||
+            currentPath.includes('/course/')) {
             apiPath = '../api.php';
         }
 
@@ -135,7 +139,8 @@ async function apiRequest(action, data = {}, method = 'GET') {
             const loginPath = currentPath.includes('/users/') ||
                              currentPath.includes('/forms/') ||
                              currentPath.includes('/questions/') ||
-                             currentPath.includes('/responses/')
+                             currentPath.includes('/responses/') ||
+                             currentPath.includes('/course/')
                 ? '../index.html'
                 : './index.html';
             window.location.href = loginPath;
