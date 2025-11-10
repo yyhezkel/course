@@ -376,6 +376,125 @@
             color: #6b7280;
         }
 
+        /* Uploads Gallery Styles */
+        .uploads-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+        }
+
+        .upload-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .upload-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .upload-preview {
+            width: 100%;
+            height: 200px;
+            background: #f9fafb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .upload-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .upload-preview .file-icon-large {
+            font-size: 64px;
+        }
+
+        .upload-info {
+            padding: 15px;
+        }
+
+        .upload-filename {
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .upload-student {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .upload-student img {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .upload-student-name {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .upload-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 10px;
+        }
+
+        .upload-description {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+
+        .upload-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .upload-btn {
+            flex: 1;
+            padding: 6px 12px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            text-align: center;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .upload-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .upload-btn.secondary {
+            background: #6b7280;
+        }
+
+        .upload-btn.secondary:hover {
+            background: #4b5563;
+        }
+
         @media (max-width: 768px) {
             .stats-cards {
                 grid-template-columns: 1fr;
@@ -384,6 +503,10 @@
             .task-stats {
                 flex-direction: column;
                 gap: 10px;
+            }
+
+            .uploads-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -419,6 +542,9 @@
                 </button>
                 <button class="view-tab" onclick="switchView('analytics')">
                     📈 דשבורד אנליטיקה
+                </button>
+                <button class="view-tab" onclick="switchView('uploads')">
+                    📁 תצוגת העלאות
                 </button>
             </div>
 
@@ -581,6 +707,64 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Option D: Uploads View -->
+            <div id="view-uploads" class="view-content">
+                <div class="task-selector-container">
+                    <label for="taskSelectUploads" style="display: block; margin-bottom: 10px; font-weight: 600;">בחר משימה לצפייה בהעלאות:</label>
+                    <select id="taskSelectUploads" class="task-select" onchange="loadTaskUploads()">
+                        <option value="">-- בחר משימה --</option>
+                    </select>
+                </div>
+
+                <div id="uploadsContainer" style="display: none;">
+                    <div class="assignments-grid">
+                        <div class="grid-header">
+                            <h3 id="selectedTaskTitleUploads" style="margin: 0 0 5px 0;"></h3>
+                            <p id="selectedTaskDescriptionUploads" style="margin: 0; color: #6b7280;"></p>
+
+                            <div class="stats-cards" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                                <div class="stat-card">
+                                    <div class="stat-value" id="totalUploads">0</div>
+                                    <div class="stat-label">סך כל הקבצים</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="totalStudentsUploaded">0</div>
+                                    <div class="stat-label">תלמידים שהעלו</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-value" id="totalSizeUploads">0 MB</div>
+                                    <div class="stat-label">סך גודל קבצים</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="filters-bar" style="padding: 15px; background: white;">
+                            <input type="text" id="studentSearchUploads" class="filter-input" placeholder="חיפוש תלמיד או קובץ..." onkeyup="filterUploads()">
+                            <select id="fileTypeFilter" class="filter-input" onchange="filterUploads()">
+                                <option value="">כל סוגי הקבצים</option>
+                                <option value="image">תמונות</option>
+                                <option value="pdf">PDF</option>
+                                <option value="document">מסמכים</option>
+                                <option value="spreadsheet">גיליונות</option>
+                                <option value="zip">קבצי ZIP</option>
+                            </select>
+                        </div>
+
+                        <div id="uploadsGallery" style="padding: 20px; background: white;">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                <p>טוען קבצים...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="export-buttons">
+                        <button class="action-btn" onclick="downloadAllFiles()">📥 הורד את כל הקבצים</button>
+                        <button class="action-btn action-btn-secondary" onclick="exportUploadsCSV()">📊 ייצא רשימה ל-CSV</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -682,11 +866,19 @@
             const select = document.getElementById('taskSelect');
             select.innerHTML = '<option value="">-- בחר משימה --</option>';
 
+            const selectUploads = document.getElementById('taskSelectUploads');
+            selectUploads.innerHTML = '<option value="">-- בחר משימה --</option>';
+
             allTasks.forEach(task => {
                 const option = document.createElement('option');
                 option.value = task.id;
                 option.textContent = `${task.title} (${task.assigned_count || 0} תלמידים)`;
                 select.appendChild(option);
+
+                const optionUploads = document.createElement('option');
+                optionUploads.value = task.id;
+                optionUploads.textContent = task.title;
+                selectUploads.appendChild(optionUploads);
             });
         }
 
@@ -1164,6 +1356,199 @@
             if (!dateString) return '-';
             const date = new Date(dateString);
             return date.toLocaleDateString('he-IL');
+        }
+
+        // Helper function for file icons
+        function getFileIcon(mimeType) {
+            if (!mimeType) return '📎';
+            if (mimeType.includes('pdf')) return '📕';
+            if (mimeType.includes('word') || mimeType.includes('document')) return '📄';
+            if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
+            if (mimeType.includes('image')) return '🖼️';
+            if (mimeType.includes('zip')) return '🗜️';
+            return '📎';
+        }
+
+        // Uploads View Functions
+        let currentUploads = [];
+
+        async function loadTaskUploads() {
+            const taskId = document.getElementById('taskSelectUploads').value;
+            if (!taskId) {
+                document.getElementById('uploadsContainer').style.display = 'none';
+                return;
+            }
+
+            const selectedTask = allTasks.find(t => t.id == taskId);
+
+            try {
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'get_task_submissions',
+                        task_id: taskId
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    currentUploads = data.submissions;
+                    renderTaskUploads(selectedTask, data.submissions);
+                    document.getElementById('uploadsContainer').style.display = 'block';
+                } else {
+                    alert('שגיאה בטעינת ההעלאות: ' + (data.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error loading uploads:', error);
+                alert('שגיאה בטעינת ההעלאות');
+            }
+        }
+
+        function renderTaskUploads(task, uploads) {
+            // Update header
+            document.getElementById('selectedTaskTitleUploads').textContent = task.title;
+            document.getElementById('selectedTaskDescriptionUploads').textContent = task.description || '';
+
+            // Calculate statistics
+            const totalUploads = uploads.length;
+            const uniqueStudents = new Set(uploads.map(u => u.user_id)).size;
+            const totalSize = uploads.reduce((sum, u) => sum + (parseInt(u.filesize) || 0), 0);
+            const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+
+            document.getElementById('totalUploads').textContent = totalUploads;
+            document.getElementById('totalStudentsUploaded').textContent = uniqueStudents;
+            document.getElementById('totalSizeUploads').textContent = `${totalSizeMB} MB`;
+
+            // Render gallery
+            const gallery = document.getElementById('uploadsGallery');
+
+            if (uploads.length === 0) {
+                gallery.innerHTML = '<div class="no-data">אין קבצים שהועלו למשימה זו</div>';
+                return;
+            }
+
+            gallery.innerHTML = `<div class="uploads-grid">${uploads.map(upload => {
+                const isImage = upload.mime_type && upload.mime_type.includes('image');
+                const fileIcon = getFileIcon(upload.mime_type);
+                const uploadDate = new Date(upload.uploaded_at).toLocaleDateString('he-IL');
+                const uploadTime = new Date(upload.uploaded_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                const sizeKB = Math.round((parseInt(upload.filesize) || 0) / 1024);
+
+                return `
+                    <div class="upload-card" data-student="${upload.full_name.toLowerCase()}" data-filename="${upload.original_filename.toLowerCase()}" data-mime="${upload.mime_type}">
+                        <div class="upload-preview">
+                            ${isImage
+                                ? `<img src="${upload.filepath}" alt="${upload.original_filename}" loading="lazy">`
+                                : `<div class="file-icon-large">${fileIcon}</div>`
+                            }
+                        </div>
+                        <div class="upload-info">
+                            <div class="upload-filename" title="${upload.original_filename}">${upload.original_filename}</div>
+
+                            <div class="upload-student">
+                                ${upload.profile_photo_url
+                                    ? `<img src="${upload.profile_photo_url}" alt="${upload.full_name}">`
+                                    : '<div style="width: 24px; height: 24px; border-radius: 50%; background: #e5e7eb; display: flex; align-items: center; justify-content: center; font-size: 12px;">👤</div>'
+                                }
+                                <span class="upload-student-name">${upload.full_name}</span>
+                            </div>
+
+                            <div class="upload-meta">
+                                <span>${uploadDate} ${uploadTime}</span>
+                                <span>${sizeKB} KB</span>
+                            </div>
+
+                            ${upload.description ? `<div class="upload-description">"${upload.description}"</div>` : ''}
+
+                            <div class="upload-actions">
+                                <a href="${upload.filepath}" class="upload-btn" download="${upload.original_filename}">הורדה</a>
+                                <a href="${upload.filepath}" class="upload-btn secondary" target="_blank">פתח</a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}</div>`;
+        }
+
+        function filterUploads() {
+            const search = document.getElementById('studentSearchUploads').value.toLowerCase();
+            const typeFilter = document.getElementById('fileTypeFilter').value;
+
+            const cards = document.querySelectorAll('.upload-card');
+            cards.forEach(card => {
+                const student = card.dataset.student || '';
+                const filename = card.dataset.filename || '';
+                const mime = card.dataset.mime || '';
+
+                const matchesSearch = student.includes(search) || filename.includes(search);
+
+                let matchesType = true;
+                if (typeFilter) {
+                    switch (typeFilter) {
+                        case 'image':
+                            matchesType = mime.includes('image');
+                            break;
+                        case 'pdf':
+                            matchesType = mime.includes('pdf');
+                            break;
+                        case 'document':
+                            matchesType = mime.includes('word') || mime.includes('document');
+                            break;
+                        case 'spreadsheet':
+                            matchesType = mime.includes('excel') || mime.includes('spreadsheet');
+                            break;
+                        case 'zip':
+                            matchesType = mime.includes('zip');
+                            break;
+                    }
+                }
+
+                card.style.display = (matchesSearch && matchesType) ? '' : 'none';
+            });
+        }
+
+        function exportUploadsCSV() {
+            const taskId = document.getElementById('taskSelectUploads').value;
+            if (!taskId || currentUploads.length === 0) {
+                alert('אין קבצים לייצוא');
+                return;
+            }
+
+            const task = allTasks.find(t => t.id == taskId);
+            let csvContent = 'קובץ,תלמיד,אימייל,תיאור,תאריך העלאה,גודל (KB),קישור\n';
+
+            currentUploads.forEach(u => {
+                const sizeKB = Math.round((parseInt(u.filesize) || 0) / 1024);
+                const uploadDate = new Date(u.uploaded_at).toLocaleString('he-IL');
+                csvContent += `"${u.original_filename}","${u.full_name}","${u.email}","${u.description || ''}","${uploadDate}",${sizeKB},"${u.filepath}"\n`;
+            });
+
+            const BOM = '\uFEFF';
+            const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `uploads_${task.title}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        }
+
+        function downloadAllFiles() {
+            if (currentUploads.length === 0) {
+                alert('אין קבצים להורדה');
+                return;
+            }
+
+            if (confirm(`האם להוריד ${currentUploads.length} קבצים?`)) {
+                currentUploads.forEach((upload, index) => {
+                    setTimeout(() => {
+                        const link = document.createElement('a');
+                        link.href = upload.filepath;
+                        link.download = upload.original_filename;
+                        link.click();
+                    }, index * 500); // Stagger downloads by 500ms
+                });
+            }
         }
     </script>
 
