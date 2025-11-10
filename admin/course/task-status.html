@@ -1008,10 +1008,10 @@
                 const statusText = isOverdue ? 'באיחור' : getStatusText(a.status);
 
                 return `
-                    <tr data-status="${a.status}" data-priority="${a.priority || 'medium'}" data-student="${a.full_name.toLowerCase()}">
+                    <tr data-status="${a.status}" data-priority="${a.priority || 'medium'}" data-student="${(a.full_name || '').toLowerCase()}">
                         <td>
-                            <strong>${a.full_name}</strong><br>
-                            <small style="color: #6b7280;">${a.email}</small>
+                            <strong>${a.full_name || 'Unknown'}</strong><br>
+                            <small style="color: #6b7280;">${a.email || ''}</small>
                         </td>
                         <td>
                             <span class="status-badge ${statusClass}">${statusText}</span>
@@ -1150,7 +1150,7 @@
 
                                         return `
                                             <tr>
-                                                <td>${a.full_name}</td>
+                                                <td>${a.full_name || 'Unknown'}</td>
                                                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                                                 <td><span class="priority-badge priority-${a.priority || 'medium'}">${getPriorityText(a.priority)}</span></td>
                                                 <td>${a.due_date ? formatDate(a.due_date) : '-'}</td>
@@ -1324,7 +1324,7 @@
 
                 csvContent = 'תלמיד,אימייל,סטטוס,עדיפות,תאריך יעד,תאריך הגשה,ציון\n';
                 assignments.forEach(a => {
-                    csvContent += `"${a.full_name}","${a.email}","${getStatusText(a.status)}","${getPriorityText(a.priority)}","${a.due_date || ''}","${a.submitted_at || ''}","${a.grade !== null ? a.grade + '%' : ''}"\n`;
+                    csvContent += `"${a.full_name || 'Unknown'}","${a.email || ''}","${getStatusText(a.status)}","${getPriorityText(a.priority)}","${a.due_date || ''}","${a.submitted_at || ''}","${a.grade !== null ? a.grade + '%' : ''}"\n`;
                 });
                 filename = `task_${task.title}_${new Date().toISOString().split('T')[0]}.csv`;
             } else if (viewType === 'list-view') {
@@ -1332,7 +1332,7 @@
                 allTasks.forEach(task => {
                     const assignments = allAssignments[task.id] || [];
                     assignments.forEach(a => {
-                        csvContent += `"${task.title}","${a.full_name}","${a.email}","${getStatusText(a.status)}","${getPriorityText(a.priority)}","${a.due_date || ''}","${a.grade !== null ? a.grade + '%' : ''}"\n`;
+                        csvContent += `"${task.title}","${a.full_name || 'Unknown'}","${a.email || ''}","${getStatusText(a.status)}","${getPriorityText(a.priority)}","${a.due_date || ''}","${a.grade !== null ? a.grade + '%' : ''}"\n`;
                     });
                 });
                 filename = `all_tasks_${new Date().toISOString().split('T')[0]}.csv`;
@@ -1502,22 +1502,22 @@
                 const sizeKB = Math.round((parseInt(upload.filesize) || 0) / 1024);
 
                 return `
-                    <div class="upload-card" data-student="${upload.full_name.toLowerCase()}" data-filename="${upload.original_filename.toLowerCase()}" data-mime="${upload.mime_type}">
+                    <div class="upload-card" data-student="${(upload.full_name || '').toLowerCase()}" data-filename="${(upload.original_filename || '').toLowerCase()}" data-mime="${upload.mime_type || ''}">
                         <div class="upload-preview">
                             ${isImage
-                                ? `<img src="${upload.filepath}" alt="${upload.original_filename}" loading="lazy">`
+                                ? `<img src="${upload.filepath}" alt="${upload.original_filename || 'File'}" loading="lazy">`
                                 : `<div class="file-icon-large">${fileIcon}</div>`
                             }
                         </div>
                         <div class="upload-info">
-                            <div class="upload-filename" title="${upload.original_filename}">${upload.original_filename}</div>
+                            <div class="upload-filename" title="${upload.original_filename || 'Unknown'}">${upload.original_filename || 'Unknown'}</div>
 
                             <div class="upload-student">
                                 ${upload.profile_photo_url
-                                    ? `<img src="${upload.profile_photo_url}" alt="${upload.full_name}">`
+                                    ? `<img src="${upload.profile_photo_url}" alt="${upload.full_name || 'Student'}">`
                                     : '<div style="width: 24px; height: 24px; border-radius: 50%; background: #e5e7eb; display: flex; align-items: center; justify-content: center; font-size: 12px;">👤</div>'
                                 }
-                                <span class="upload-student-name">${upload.full_name}</span>
+                                <span class="upload-student-name">${upload.full_name || 'Unknown'}</span>
                             </div>
 
                             <div class="upload-meta">
@@ -1587,7 +1587,7 @@
             currentUploads.forEach(u => {
                 const sizeKB = Math.round((parseInt(u.filesize) || 0) / 1024);
                 const uploadDate = new Date(u.uploaded_at).toLocaleString('he-IL');
-                csvContent += `"${u.original_filename}","${u.full_name}","${u.email}","${u.description || ''}","${uploadDate}",${sizeKB},"${u.filepath}"\n`;
+                csvContent += `"${u.original_filename || 'Unknown'}","${u.full_name || 'Unknown'}","${u.email || ''}","${u.description || ''}","${uploadDate}",${sizeKB},"${u.filepath}"\n`;
             });
 
             const BOM = '\uFEFF';
