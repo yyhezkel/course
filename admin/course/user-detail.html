@@ -327,6 +327,9 @@
                 avatarElement.style.backgroundSize = 'cover';
                 avatarElement.style.backgroundPosition = 'center';
                 avatarElement.textContent = '';
+                avatarElement.style.cursor = 'pointer';
+                avatarElement.title = 'לחץ לצפייה בתמונת פרופיל';
+                avatarElement.onclick = () => previewFile(userData.profile_photo, 'תמונת פרופיל - ' + (userData.full_name || userData.tz), 'image/jpeg');
             } else {
                 // Display initials
                 let initials = '??';
@@ -338,6 +341,9 @@
                 }
                 avatarElement.style.backgroundImage = '';
                 avatarElement.textContent = initials;
+                avatarElement.style.cursor = 'default';
+                avatarElement.title = '';
+                avatarElement.onclick = null;
             }
 
             document.getElementById('userName').textContent = userData.full_name || userData.tz || 'תלמיד';
