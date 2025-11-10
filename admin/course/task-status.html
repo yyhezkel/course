@@ -846,7 +846,7 @@
 
                 const data = await response.json();
                 if (!data.authenticated) {
-                    window.location.href = '../index.php';
+                    window.location.href = '../index.html';
                     return false;
                 }
 
@@ -857,7 +857,7 @@
                 return true;
             } catch (error) {
                 console.error('Error checking auth:', error);
-                window.location.href = '../index.php';
+                window.location.href = '../index.html';
                 return false;
             }
         }
@@ -869,7 +869,7 @@
                 credentials: 'include',
                 body: JSON.stringify({ action: 'logout' })
             }).then(() => {
-                window.location.href = '../index.php';
+                window.location.href = '../index.html';
             });
         }
 
