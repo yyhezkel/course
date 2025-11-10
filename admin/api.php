@@ -2943,6 +2943,27 @@ if ($action === 'get_task_submissions') {
     }
 
     try {
+        // Ensure task_submissions table exists
+        $result = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='task_submissions'");
+        if (!$result->fetch()) {
+            // Create the table if it doesn't exist
+            $db->exec("
+                CREATE TABLE task_submissions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_task_id INTEGER NOT NULL,
+                    filename TEXT NOT NULL,
+                    original_filename TEXT NOT NULL,
+                    filepath TEXT NOT NULL,
+                    filesize INTEGER NOT NULL,
+                    mime_type TEXT NOT NULL,
+                    description TEXT,
+                    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_task_id) REFERENCES user_tasks(id) ON DELETE CASCADE
+                )
+            ");
+            $db->exec("CREATE INDEX IF NOT EXISTS idx_task_submissions_user_task ON task_submissions(user_task_id)");
+        }
+
         $stmt = $db->prepare("
             SELECT
                 ts.*,
