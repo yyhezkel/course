@@ -2964,20 +2964,50 @@ if ($action === 'get_task_submissions') {
             $db->exec("CREATE INDEX IF NOT EXISTS idx_task_submissions_user_task ON task_submissions(user_task_id)");
         }
 
-        $stmt = $db->prepare("
-            SELECT
-                ts.*,
-                ut.user_id,
-                ut.task_id,
-                u.full_name,
-                u.email,
-                u.profile_photo_url
-            FROM task_submissions ts
-            INNER JOIN user_tasks ut ON ts.user_task_id = ut.id
-            INNER JOIN users u ON ut.user_id = u.id
-            WHERE ut.task_id = ?
-            ORDER BY ts.uploaded_at DESC
-        ");
+        // Check if profile_photo_url column exists in users table
+        $columnsResult = $db->query("PRAGMA table_info(users)");
+        $columns = $columnsResult->fetchAll(PDO::FETCH_ASSOC);
+        $hasProfilePhotoUrl = false;
+        foreach ($columns as $column) {
+            if ($column['name'] === 'profile_photo_url') {
+                $hasProfilePhotoUrl = true;
+                break;
+            }
+        }
+
+        // Build query based on whether profile_photo_url exists
+        if ($hasProfilePhotoUrl) {
+            $stmt = $db->prepare("
+                SELECT
+                    ts.*,
+                    ut.user_id,
+                    ut.task_id,
+                    u.full_name,
+                    u.email,
+                    u.profile_photo_url
+                FROM task_submissions ts
+                INNER JOIN user_tasks ut ON ts.user_task_id = ut.id
+                INNER JOIN users u ON ut.user_id = u.id
+                WHERE ut.task_id = ?
+                ORDER BY ts.uploaded_at DESC
+            ");
+        } else {
+            $stmt = $db->prepare("
+                SELECT
+                    ts.*,
+                    ut.user_id,
+                    ut.task_id,
+                    u.full_name,
+                    u.email,
+                    NULL as profile_photo_url
+                FROM task_submissions ts
+                INNER JOIN user_tasks ut ON ts.user_task_id = ut.id
+                INNER JOIN users u ON ut.user_id = u.id
+                WHERE ut.task_id = ?
+                ORDER BY ts.uploaded_at DESC
+            ");
+        }
+
         $stmt->execute([$taskId]);
         $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
